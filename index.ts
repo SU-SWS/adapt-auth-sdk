@@ -1,1 +1,2 @@
-export * from './dist/bundle';
+export * from './src/AdaptAuth';
+export * from './src/types';
