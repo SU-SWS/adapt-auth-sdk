@@ -1,2 +1,10 @@
-export * from './src/AdaptAuth';
-export * from './src/types';
+import { AdaptAuth } from './src/AdaptAuth';
+
+const TestObject = {
+  message: "hello world",
+};
+
+module.exports = {
+  TestObject,
+  AdaptAuth,
+};
