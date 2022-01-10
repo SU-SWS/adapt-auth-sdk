@@ -1,10 +1,4 @@
-import { AdaptAuth } from './src/AdaptAuth';
-
-const TestObject = {
+export * from './src/AdaptAuth';
+export const TestObject = {
   message: "hello world",
-};
-
-module.exports = {
-  TestObject,
-  AdaptAuth,
 };
