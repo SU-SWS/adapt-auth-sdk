@@ -1,8 +1,8 @@
 /* eslint-disable no-console */
 import { Handler, Response, NextFunction } from 'express';
-import passport from 'passport';
+import * as passport from 'passport';
 import { Strategy as SamlStrategy } from 'passport-saml';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { serialize } from 'cookie';
 import {
   AdaptAuthConfig,
