@@ -62,14 +62,6 @@ export class AdaptAuth {
           encodedSUID: profile.encodedSUID as string,
         };
 
-        // Attach relayState to req
-        try {
-          (req as SamlUserRequest).samlRelayState = JSON.parse(req.body.RelayState);
-        } catch (err) {
-          // I guess the relayState wasn't that great...
-          console.log('Unable to parse samlRelayState', err);
-        }
-
         done(null, user);
       }
     );
@@ -191,7 +183,7 @@ export class AdaptAuth {
 
         // Response
         return this.createSession()(req as SamlUserRequest, res, () => {
-          const loginRedirect = redirectUrl || this.config.session.loginRedirectUrl;
+          const loginRedirect = redirectUrl || this.getFinalDestination(req) || this.config.session.loginRedirectUrl;
           if (loginRedirect) {
             res.redirect(loginRedirect);
           } else {
@@ -241,7 +233,18 @@ export class AdaptAuth {
   /**
    * Helper to extract the saml relay final destination url from req object
    */
-  public getFinalDestination = (req: any) => ((req as SamlUserRequest).samlRelayState || {}).finalDestination;
+  public getFinalDestination = (req: any) => {
+    // Attach relayState to req
+    try {
+      const relayState = JSON.parse(req.body.RelayState);
+      const finalDest = relayState.finalDestination || null;
+      return finalDest;
+
+    } catch (err) {
+      // I guess the relayState wasn't that great...
+      console.log('Unable to parse samlRelayState', err);
+    }
+  };
 }
 
 // Singleton client for default consumption
