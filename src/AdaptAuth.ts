@@ -62,6 +62,13 @@ export class AdaptAuth {
           encodedSUID: profile.encodedSUID as string,
         };
 
+        try {
+          (req as SamlUserRequest).samlRelayState = JSON.parse(req.body.RelayState);
+        } catch (err) {
+          // I guess the relayState wasn't that great...
+          console.log('Unable to parse samlRelayState', err);
+        }
+
         done(null, user);
       }
     );
