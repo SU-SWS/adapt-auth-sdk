@@ -243,7 +243,7 @@ export class AdaptAuth {
   public getFinalDestination = (req: any) => {
     // Attach relayState to req
     try {
-      const relayState = JSON.parse(req.body.RelayState);
+      const relayState = req.samlRelayState;
       const finalDest = relayState.finalDestination || null;
       return finalDest;
 
