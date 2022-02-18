@@ -190,12 +190,7 @@ export class AdaptAuth {
 
         // Response
         return this.createSession()(req as SamlUserRequest, res, () => {
-          const loginRedirect = redirectUrl || this.getFinalDestination(req) || this.config.session.loginRedirectUrl;
-          if (loginRedirect) {
-            res.redirect(loginRedirect);
-          } else {
-            next();
-          }
+          next();
         });
       });
     });
