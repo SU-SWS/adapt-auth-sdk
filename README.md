@@ -50,8 +50,6 @@ ADAPT_AUTH_SESSION_NAME="adapt-auth"
 ADAPT_AUTH_SESSION_EXPIRES_IN="24h"
 # Local url to redirect to after logging out of session (optional) defaults to "/"
 ADAPT_AUTH_SESSION_LOGOUT_URL="/login"
-# Local url to redirect to after logging in (optional)
-ADAPT_AUTH_SESSION_LOGIN_URL="/dashboard"
 # Local url to redirect to after authorize middleware failure (optional) defaults to responding 401
 ADAPT_AUTH_SESSION_UNAUTHORIZED_URL
 ```
@@ -72,7 +70,6 @@ const myAuthInstance = new AdaptAuth({
     name: 'my-auth-session',
     secret: 'my-jwt-secret',
     logoutRedirectUrl: '/login',
-    loginRedirectUrl: '/dashboard',
     unauthorizedRedirectUrl: '/login?code=UNAUTHORIZED',
   },
 });
