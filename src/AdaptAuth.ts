@@ -174,7 +174,7 @@ export class AdaptAuth {
   /**
    * Convenience middleware that wraps the entire saml auth process into a single middleware
    */
-  public authenticate = (redirectUrl?: string): Handler => async (req, res, next) => {
+  public authenticate = (): Handler => async (req, res, next) => {
     // Initialize
     this.initialize()(req, res, async (initErr) => {
       if (initErr) {
