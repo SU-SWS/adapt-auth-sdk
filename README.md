@@ -101,8 +101,14 @@ app.use(cookieParser());
 // Initiate SAML SP redirect
 app.get('/login', auth.initiate());
 
-// Handle SAML document POST back.
-app.post('/saml/authenticate', auth.authenticate());
+// Handle SAML document POST back. User redirected to '/dashboard' on successful authentication
+app.post(
+  '/api/auth/callback',
+  authInstance.authenticate(),
+  (req, res, next) => {
+    res.redirect('/dashboard);
+  }
+);
 
 // Protect endpoints with local session authorization. Unauthorized users redirected to '/login' here
 app.get(

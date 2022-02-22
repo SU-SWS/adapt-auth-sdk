@@ -37,7 +37,6 @@ export class AdaptAuth {
         name: process.env.ADAPT_AUTH_SESSION_NAME || 'adapt-auth',
         expiresIn: process.env.ADAPT_AUTH_SESSION_EXPIRES_IN || '12h',
         logoutRedirectUrl: process.env.ADAPT_AUTH_SESSION_LOGOUT_URL || '/',
-        loginRedirectUrl: process.env.ADAPT_AUTH_SESSION_LOGIN_URL,
         unauthorizedRedirectUrl: process.env.ADAPT_AUTH_SESSION_UNAUTHORIZED_URL,
         ...(config.session || {}),
       },
