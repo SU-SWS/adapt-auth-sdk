@@ -104,8 +104,8 @@ app.use(cookieParser());
 // Initiate SAML SP redirect
 app.get('/login', auth.initiate());
 
-// Handle SAML document POST back. User redirected to '/dashboard' on successful authentication
-app.post('/saml/authenticate', auth.authenticate('/dashboard'));
+// Handle SAML document POST back.
+app.post('/saml/authenticate', auth.authenticate());
 
 // Protect endpoints with local session authorization. Unauthorized users redirected to '/login' here
 app.get(
@@ -188,15 +188,12 @@ Middleware that destroys local jwt session and redirects.
 app.get('/logout', auth.destroySession('/public-homepage'));
 ```
 
-### `AdaptAuth.authenticate(redirectUrl?: string)`
+### `AdaptAuth.authenticate()`
 This middleware is a wrapper for the entire authentication process intended to be used as the saml POST back endpoint.
 It handles passport initialization, SAML document verification, and local jwt session creation.
-NOTE: When `redirectUrl` and `config.loginRedirectUrl` are unset `authenticate` calls `next()` like any other standard middleware.
-
-- `redirectUrl?: string` Optional url to redirect to after authentication complete. Overrides `config.loginRedirectUrl`.
 
 ```typescript
-app.post('/handle/saml', auth.authenticate('/dashboard'));
+app.post('/handle/saml', auth.authenticate());
 ```
 
 ### `AdaptAuth.authorize(options?: AuthorizeOptions = {})`
