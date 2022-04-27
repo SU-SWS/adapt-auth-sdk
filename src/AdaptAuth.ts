@@ -112,7 +112,6 @@ export class AdaptAuth {
       .setProtectedHeader({ alg: 'HS256' })
       .setExpirationTime(this.config.session.expiresIn)
       .sign(new TextEncoder().encode(this.config.session.secret));
-    console.log('TOKEN:', token);
     return token;
   };
 
