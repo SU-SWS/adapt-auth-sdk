@@ -117,7 +117,6 @@ export class AdaptAuth {
 
   public verifyToken = async (token: string) => {
     const verified = await jwtVerify(token, new TextEncoder().encode(this.config.session.secret));
-    console.log('TOKEN VERIFIED!', verified);
     return verified.payload as unknown as AuthUser;
   };
 
