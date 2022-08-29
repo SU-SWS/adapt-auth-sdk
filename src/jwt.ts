@@ -39,14 +39,17 @@ export const validateSessionCookie = async <T extends { cookies?: Record<string,
 
   // Cookie accessor pattern for Next 12 middleware.
   if (req.hasOwnProperty('cookies') && req.cookies.hasOwnProperty('get')) {
+    console.log('Next 12 cookie pattern', req.cookies);
     token = req.cookies.get(name);
   } 
   // Cookie access for Next 11 and other frameworks that use Express cookie-parser.
   else if (req.hasOwnProperty('cookies') && req.cookies.hasOwnProperty(name)) {
+    console.log('Next 11 cookie pattern', req.cookies);
     token = req.cookies[name];
   }
   // If no session cookie was found, throw an exception.
   else {
+    console.log('No session cookie found');
     throw new Error('Session cookie not set.');
   }
   
