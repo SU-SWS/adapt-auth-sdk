@@ -37,16 +37,17 @@ export const validateSessionCookie = async <T extends { cookies?: Record<string,
   const secret = config.secret || defaultJwtConfig.secret;
   let token;
 
-  // Cookie accessor pattern for Next 12 middleware.
-  if (req.hasOwnProperty('cookies') && req.cookies.hasOwnProperty('get')) {
+  try {
+    // Cookie accessor pattern for Next 12 middleware.
     token = req.cookies.get(name);
-  } 
+  }
   // Cookie access for Next 11 and other frameworks that use Express cookie-parser.
-  else if (req.hasOwnProperty('cookies') && req.cookies.hasOwnProperty(name)) {
+  catch(err) {
     token = req.cookies[name];
   }
+
   // If no session cookie was found, throw an exception.
-  else {
+  if(!token) {
     throw new Error('Session cookie not set.');
   }
   
