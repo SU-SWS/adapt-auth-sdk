@@ -27,7 +27,7 @@
   "dependencies": {
     "cookie": "^0.4.1",
     "express": "^4.17.2",
-    "jose": "^4.8.0",
+    "jose": "^4.10.0",
     "passport": "^0.6.0",
     "passport-saml": "^3.2.0"
   },
