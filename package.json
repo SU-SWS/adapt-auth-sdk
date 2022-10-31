@@ -32,7 +32,7 @@
     "passport-saml": "^3.2.0"
   },
   "devDependencies": {
-    "@types/node": "^17.0.8",
+    "@types/node": "^18.11.8",
     "@typescript-eslint/eslint-plugin": "^5.9.0",
     "@typescript-eslint/parser": "^5.9.0",
     "eslint": "^8.26.0",
