@@ -50,7 +50,7 @@ export const validateSessionCookie = async <T extends { cookies?: Record<string,
   if(!token) {
     throw new Error('Session cookie not set.');
   }
-  
+
   const user = await verifyToken(token, { secret });
   return user;
 };
