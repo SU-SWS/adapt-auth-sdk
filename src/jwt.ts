@@ -13,6 +13,12 @@ const defaultJwtConfig: JWTConfig = {
   name: process.env.ADAPT_AUTH_SESSION_NAME || 'adapt-auth',
 };
 
+/**
+ * 
+ * @param user 
+ * @param config 
+ * @returns 
+ */
 export const signJWT = async (user: AuthUser, config: JWTConfig = {}) => {
   const expiresIn = config.expiresIn || defaultJwtConfig.expiresIn;
   const secret = config.secret || defaultJwtConfig.secret;
@@ -23,12 +29,24 @@ export const signJWT = async (user: AuthUser, config: JWTConfig = {}) => {
   return token;
 };
 
+/**
+ * 
+ * @param token 
+ * @param config 
+ * @returns 
+ */
 export const verifyToken = async (token: string, config: JWTConfig = {}) => {
   const secret = config.secret || defaultJwtConfig.secret;
   const verified = await jwtVerify(token, new TextEncoder().encode(secret));
   return verified.payload as unknown as AuthUser;
 };
 
+/**
+ * 
+ * @param req 
+ * @param config 
+ * @returns 
+ */
 export const validateSessionCookie = async <T extends { cookies?: Record<string, any> }>(
   req: T,
   config: JWTConfig = {}
@@ -38,8 +56,9 @@ export const validateSessionCookie = async <T extends { cookies?: Record<string,
   let token;
 
   try {
-    // Cookie accessor pattern for Next 12 middleware.
-    token = req.cookies.get(name);
+    // Cookie accessor pattern for Next 12+ middleware.
+    const cookieInfo = req.cookies.get(name);
+    token = cookieInfo?.value;
   }
   // Cookie access for Next 11 and other frameworks that use Express cookie-parser.
   catch(err) {
