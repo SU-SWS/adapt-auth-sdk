@@ -95,6 +95,8 @@ export interface AuthUser {
   lastName: string;
   SUID?: string;
   encodedSUID: string;
+  originalEncodedSUID?: string;
+  spoofed?: boolean;
 }
 
 // Utility type useful for extending http request-like types
