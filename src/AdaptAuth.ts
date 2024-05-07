@@ -168,13 +168,13 @@ export class AdaptAuth {
     this.initialize()(req, res, async (initErr) => {
       if (initErr) {
         console.log('Passport initialize ERROR:', initErr);
-        return res.json('UNAUTHORIZED', { status: 401 });
+        return new Response.json('UNAUTHORIZED', { status: 401 });
       }
       // Authenticate
       return this.authenticateSaml()(req, res, async (authErr) => {
         if (authErr) {
           console.log('SAML Authentication ERROR:', authErr);
-          return res.json('UNAUTHORIZED', { status: 401 });
+          return new Response.json('UNAUTHORIZED', { status: 401 });
         }
 
         // Response
