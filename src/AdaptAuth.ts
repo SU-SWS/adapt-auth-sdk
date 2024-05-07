@@ -83,7 +83,7 @@ export class AdaptAuth {
     const isMoreThanUrlPath = final && /^(https?:\/\/)?([a-z0-9.-]+)/.test(final);
 
     if (isMoreThanUrlPath) {
-      return res.status(400).json('Invalid "final_destination" parameter. Must be be local url path part');
+      return res.json('Invalid "final_destination" parameter. Must be be local url path part', { status: 400 });
     }
 
     const returnTo = this.config.saml.returnTo || `${this.config.saml.returnToOrigin}${this.config.saml.returnToPath}`;
@@ -157,7 +157,7 @@ export class AdaptAuth {
     ]);
 
     const logoutRedirect = redirectUrl || this.config.session.logoutRedirectUrl;
-    res.redirect(logoutRedirect);
+    return res.redirect(logoutRedirect);
   };
 
   /**
@@ -168,13 +168,13 @@ export class AdaptAuth {
     this.initialize()(req, res, async (initErr) => {
       if (initErr) {
         console.log('Passport initialize ERROR:', initErr);
-        return res.status(401).json('UNAUTHORIZED');
+        return res.json('UNAUTHORIZED', { status: 401 });
       }
       // Authenticate
       return this.authenticateSaml()(req, res, async (authErr) => {
         if (authErr) {
           console.log('SAML Authentication ERROR:', authErr);
-          return res.status(401).json('UNAUTHORIZED');
+          return res.json('UNAUTHORIZED', { status: 401 });
         }
 
         // Response
@@ -203,10 +203,10 @@ export class AdaptAuth {
         // Check for unauthorized redirect
         const redirectUrl = options.redirectUrl || this.config.session.unauthorizedRedirectUrl;
         if (redirectUrl) {
-          res.redirect(redirectUrl);
+          return res.redirect(redirectUrl);
         } else {
           // Default 401 response
-          res.status(401).json('UNAUTHORIZED');
+          return res.json('UNAUTHORIZED', { status: 401 });
         }
       }
     }
