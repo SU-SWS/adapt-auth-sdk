@@ -83,7 +83,7 @@ export class AdaptAuth {
     const isMoreThanUrlPath = final && /^(https?:\/\/)?([a-z0-9.-]+)/.test(final);
 
     if (isMoreThanUrlPath) {
-      return new Response.json('Invalid "final_destination" parameter. Must be be local url path part', { status: 400 });
+      return res.status(400).json('Invalid "final_destination" parameter. Must be be local url path part');
     }
 
     const returnTo = this.config.saml.returnTo || `${this.config.saml.returnToOrigin}${this.config.saml.returnToPath}`;
@@ -94,7 +94,7 @@ export class AdaptAuth {
       ...(final ? { final_destination: final } : {}),
     };
     const query = new URLSearchParams(params).toString();
-    return new Response.redirect(`${this.config.saml.serviceProviderLoginUrl}?${query}`);
+    return res.redirect(`${this.config.saml.serviceProviderLoginUrl}?${query}`);
   };
 
   // Passport initialize must be used prior to other passport middlewares
@@ -146,7 +146,7 @@ export class AdaptAuth {
   /**
    * Destory the local auth session
    */
-  public destroySession = (redirectUrl?: string) => (_req, res: Response) => {
+  public destroySession = (redirectUrl?: string) => (_req, res) => {
     // Destroy session cookies
     res.setHeader('Set-Cookie', [
       serialize(this.config.session.name, '', { maxAge: -1, path: '/' }),
@@ -168,13 +168,13 @@ export class AdaptAuth {
     this.initialize()(req, res, async (initErr) => {
       if (initErr) {
         console.log('Passport initialize ERROR:', initErr);
-        return new Response.json('UNAUTHORIZED', { status: 401 });
+        return res.status(401).json('UNAUTHORIZED');
       }
       // Authenticate
       return this.authenticateSaml()(req, res, async (authErr) => {
         if (authErr) {
           console.log('SAML Authentication ERROR:', authErr);
-          return new Response.json('UNAUTHORIZED', { status: 401 });
+          return res.status(401).json('UNAUTHORIZED');
         }
 
         // Response
@@ -203,10 +203,10 @@ export class AdaptAuth {
         // Check for unauthorized redirect
         const redirectUrl = options.redirectUrl || this.config.session.unauthorizedRedirectUrl;
         if (redirectUrl) {
-          return new Response.redirect(redirectUrl);
+          res.redirect(redirectUrl);
         } else {
           // Default 401 response
-          return new Response.json('UNAUTHORIZED', { status: 401 });
+          res.status(401).json('UNAUTHORIZED');
         }
       }
     }
