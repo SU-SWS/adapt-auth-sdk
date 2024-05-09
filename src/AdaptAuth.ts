@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import { Handler, Response, NextFunction } from 'express';
+import { Handler, NextFunction } from 'express';
 import * as passport from 'passport';
 import { Strategy as SamlStrategy } from 'passport-saml';
 import { serialize } from 'cookie';
@@ -83,7 +83,7 @@ export class AdaptAuth {
     const isMoreThanUrlPath = final && /^(https?:\/\/)?([a-z0-9.-]+)/.test(final);
 
     if (isMoreThanUrlPath) {
-      return res.json('Invalid "final_destination" parameter. Must be be local url path part', { status: 400 });
+      return Response.json('Invalid "final_destination" parameter. Must be be local url path part', { status: 400 });
     }
 
     const returnTo = this.config.saml.returnTo || `${this.config.saml.returnToOrigin}${this.config.saml.returnToPath}`;
@@ -94,7 +94,7 @@ export class AdaptAuth {
       ...(final ? { final_destination: final } : {}),
     };
     const query = new URLSearchParams(params).toString();
-    return res.redirect(`${this.config.saml.serviceProviderLoginUrl}?${query}`);
+    return Response.redirect(`${this.config.saml.serviceProviderLoginUrl}?${query}`);
   };
 
   // Passport initialize must be used prior to other passport middlewares
@@ -123,22 +123,32 @@ export class AdaptAuth {
     }
 
     const token = await this.signToken(req.user);
-    res.setHeader('Set-Cookie', [
-      // HTTP Only cookie includes session token
-      serialize(this.config.session.name, token, {
+    const headers = new Headers();
+    // HTTP Only cookie includes session token
+    headers.append('Set-Cookie', serialize(
+      this.config.session.name,
+      token,
+      {
         httpOnly: true,
         secure: process.env.NODE_ENV !== 'development',
         sameSite: 'strict',
         path: '/',
-      }),
-      // client side cookie to alert frontend that session is active
-      serialize(`${this.config.session.name}-session`, 'active', {
+      }
+    ));
+
+    // client side cookie to alert frontend that session is active
+    headers.append('Set-Cookie', serialize(
+      `${this.config.session.name}-session`,
+      'active',
+      {
         httpOnly: false,
         secure: false,
         sameSite: 'strict',
         path: '/',
-      }),
-    ]);
+      }
+    ));
+
+    // TODO: send headers with response
 
     next();
   };
@@ -147,17 +157,13 @@ export class AdaptAuth {
    * Destory the local auth session
    */
   public destroySession = (redirectUrl?: string) => (_req, res) => {
-    // Destroy session cookies
-    res.setHeader('Set-Cookie', [
-      serialize(this.config.session.name, '', { maxAge: -1, path: '/' }),
-      serialize(`${this.config.session.name}-session`, '', {
-        maxAge: -1,
-        path: '/',
-      }),
-    ]);
+    const headers = new Headers();
+    headers.append('Set-Cookie', serialize(this.config.session.name, '', { maxAge: -1, path: '/' }));
+    headers.append('Set-Cookie', serialize(`${this.config.session.name}-session`, '', { maxAge: -1, path: '/'}));
 
     const logoutRedirect = redirectUrl || this.config.session.logoutRedirectUrl;
-    return res.redirect(logoutRedirect);
+    // TODO: find a way to redirect with headers
+    return Response.redirect(logoutRedirect);
   };
 
   /**
@@ -168,13 +174,13 @@ export class AdaptAuth {
     this.initialize()(req, res, async (initErr) => {
       if (initErr) {
         console.log('Passport initialize ERROR:', initErr);
-        return new Response.json('UNAUTHORIZED', { status: 401 });
+        return Response.json('UNAUTHORIZED', { status: 401 });
       }
       // Authenticate
       return this.authenticateSaml()(req, res, async (authErr) => {
         if (authErr) {
           console.log('SAML Authentication ERROR:', authErr);
-          return new Response.json('UNAUTHORIZED', { status: 401 });
+          return Response.json('UNAUTHORIZED', { status: 401 });
         }
 
         // Response
@@ -203,10 +209,10 @@ export class AdaptAuth {
         // Check for unauthorized redirect
         const redirectUrl = options.redirectUrl || this.config.session.unauthorizedRedirectUrl;
         if (redirectUrl) {
-          return res.redirect(redirectUrl);
+          return Response.redirect(redirectUrl);
         } else {
           // Default 401 response
-          return res.json('UNAUTHORIZED', { status: 401 });
+          return Response.json('UNAUTHORIZED', { status: 401 });
         }
       }
     }
