@@ -140,7 +140,7 @@ export class AdaptAuth {
       }),
     ]);
 
-    next();
+    await next();
   };
 
   /**
@@ -194,11 +194,11 @@ export class AdaptAuth {
     try {
       const user = await this.validateSessionCookie(req);
       req.user = user;
-      next();
+      await ext();
     } catch (error) {
       // Allow unauthorized requests through
       if (options.allowUnauthorized) {
-        next();
+        await next();
       } else {
         // Check for unauthorized redirect
         const redirectUrl = options.redirectUrl || this.config.session.unauthorizedRedirectUrl;
