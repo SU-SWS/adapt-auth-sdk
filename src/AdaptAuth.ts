@@ -194,7 +194,7 @@ export class AdaptAuth {
     try {
       const user = await this.validateSessionCookie(req);
       req.user = user;
-      await ext();
+      await next();
     } catch (error) {
       // Allow unauthorized requests through
       if (options.allowUnauthorized) {
