@@ -1,11 +1,13 @@
-name: Release
+# Automatically Create a Release when PR is merged to main with one of the following
+# labels: "patch", "minor", "major", "alpha", "beta", "rc".
 
+name: Auto Release
+
+# Controls when the action will run.
 on:
-  push:
-    branches:
-      - main
-
-  workflow_dispatch:
+  pull_request:
+    types: [ closed ]
+    branches: [ main ]
 
 jobs:
   release:
@@ -13,24 +15,85 @@ jobs:
     timeout-minutes: 10
     runs-on: ubuntu-latest
 
+    # Only run on merged PRs with an appropriate label.
+    if: |
+      github.event.pull_request.merged &&
+      (
+        contains(github.event.pull_request.labels.*.name, 'patch') ||
+        contains(github.event.pull_request.labels.*.name, 'minor') ||
+        contains(github.event.pull_request.labels.*.name, 'major') ||
+        contains(github.event.pull_request.labels.*.name, 'alpha') ||
+        contains(github.event.pull_request.labels.*.name, 'beta') ||
+        contains(github.event.pull_request.labels.*.name, 'rc')
+      )
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - uses: actions/checkout@v2
-      # Specify a different token to allow pushing changes to main later
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v4
+        # Specify a different token to allow pushing changes to main later
         with:
           token: ${{ secrets.ADMIN_GITHUB_TOKEN }}
+
       - name: Set Git user
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "Github Action"
+
+      # Increment version based on label
+      - name: Patch Release tag
+        if: ${{ contains( github.event.pull_request.labels.*.name, 'patch') }}
+        run: npm version patch
+
+      - name: Minor Release tag
+        if: ${{ contains( github.event.pull_request.labels.*.name, 'minor') }}
+        run: npm version minor
+
+      - name: Major Release tag
+        if: ${{ contains( github.event.pull_request.labels.*.name, 'major') }}
+        run: npm version major
+
+      - name: Alpha Release tag
+        if: ${{ contains( github.event.pull_request.labels.*.name, 'alpha') }}
+        run: |
+          npm version prerelease --preid alpha
+          echo "PRERELEASE=true" >> $GITHUB_ENV
+
+      - name: Beta Release tag
+        if: ${{ contains( github.event.pull_request.labels.*.name, 'beta') }}
+        run: |
+          npm version prerelease --preid beta
+          echo "PRERELEASE=true" >> $GITHUB_ENV
+
+      - name: RC Release tag
+        if: ${{ contains( github.event.pull_request.labels.*.name, 'rc') }}
+        run: |
+          npm version prerelease --preid rc
+          echo "PRERELEASE=true" >> $GITHUB_ENV
+
+      # Push commits back to origin repo.
+      - name: Push Changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GH_ACCESS_TOKEN }}
+          branch: ${{ github.base_ref }}
+          tags: true
+
+      - name: Set environment variables for release notes.
+        id: getreleaseid
+        run: |
+          echo "RELEASE_TAG=$(git tag --sort=-taggerdate | head -1)" >> $GITHUB_ENV
+          echo "PREVIOUS_TAG=$(git tag --sort=-taggerdate | sed -n '2 p')" >> $GITHUB_ENV
+
       - name: Publish Release
         id: release
         uses: release-drafter/release-drafter@v5
         with:
+          version: ${{ env.RELEASE_TAG }}
           publish: true
         env:
           GITHUB_TOKEN: ${{ secrets.ADMIN_GITHUB_TOKEN }}
-          # The following var needs to correspond with what's used in the .npmrc file for fa pro
-          FONTAWESOME_NPM_AUTH_TOKEN: ${{ secrets.FA_NPM_TOKEN }}
+
       - name: Merge release back into dev
         uses: devmasx/merge-branch@v1.3.1
         with:
@@ -38,12 +101,3 @@ jobs:
           from_branch: main
           target_branch: dev
           github_token: ${{ secrets.ADMIN_GITHUB_TOKEN }}
-      
-      - name: "Install dependencies"
-        run: npm ci
-
-      - name: "Publish to NPM"
-        uses: JS-DevTools/npm-publish@v1
-        with:
-          token: ${{ secrets.NPMJS_AUTH_TOKEN }}
-          access: 'public'

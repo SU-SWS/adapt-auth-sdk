@@ -2,8 +2,23 @@
   "name": "adapt-auth-sdk",
   "version": "1.0.5",
   "description": "Provides all the functionality needed to easily integrate your Javascript web applications with Stanford SAML federated identity provider.",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./session": {
+      "import": "./dist/session.js",
+      "types": "./dist/session.d.ts"
+    },
+    "./saml": {
+      "import": "./dist/saml.js",
+      "types": "./dist/saml.d.ts"
+    }
+  },
   "files": [
     "dist"
   ],
@@ -26,22 +41,18 @@
   "homepage": "https://github.com/SU-SWS/adapt-auth-sdk#readme",
   "dependencies": {
     "cookie": "^0.4.1",
-    "express": "^4.17.2",
-    "jose": "^4.8.0",
-    "passport": "^0.5.2",
-    "passport-saml": "^3.2.0"
+    "iron-session": "^8.0.4",
+    "samlify": "^2.10.0"
   },
   "devDependencies": {
-    "@types/node": "^17.0.8",
-    "@typescript-eslint/eslint-plugin": "^5.9.0",
-    "@typescript-eslint/parser": "^5.9.0",
-    "eslint": "^8.6.0",
-    "eslint-config-standard": "^16.0.3",
-    "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-promise": "^6.0.0",
-    "ts-loader": "^9.2.6",
-    "typescript": "^4.5.4",
-    "webpack": "^5.65.0",
-    "webpack-cli": "^4.9.1"
+    "@eslint/js": "^9.27.0",
+    "@types/node": "^22.15.21",
+    "eslint": "^9.27.0",
+    "globals": "^16.2.0",
+    "typescript": "^5",
+    "typescript-eslint": "^8.32.1"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

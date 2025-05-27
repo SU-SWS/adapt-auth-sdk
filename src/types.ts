@@ -1,125 +1,67 @@
-import { Request } from 'express';
-
-// NOTE: This type is duplicated here so we can more easily abstract this module for distribution
-export type DeepPartial<T extends {}> = {
-  [P in keyof T]?: DeepPartial<T[P]>;
-};
+import { ServiceProviderSettings } from "samlify/types/src/types";
 
 /**
- * Authorize middleware options
+ * AdaptAuthOptions defines the configuration options for the AdaptAuth middleware.
  */
-export interface AuthorizeOptions {
-  allowUnauthorized?: boolean;
-  redirectUrl?: string;
+export type AdaptAuthOptions = Partial<{
+  /**
+   * Configuration for SAML authentication.
+   * This is used to set up the SAML service provider that AdaptAuth will use for authentication.
+   */
+  saml: SamlConfig;
+  /**
+   * Configuration for session management.
+   * This is used to manage user sessions, including session cookies and expiration.
+   */
+  session: SessionConfig;
+}>;
+
+/**
+ * Configuration for SAML authentication in AdaptAuth.
+ * This configuration is used to set up the SAML service provider that AdaptAuth will use for authentication.
+ */
+export type SamlConfig = ServiceProviderSettings & {
+  /**
+   * The URL to redirect users to for logging in via the service provider.
+   * This URL exists at the service provider and is in the format of `https://<entityId>.stanford.edu/api/sso/login`.
+   */
+  serviceProviderLoginUrl?: string;
+
+  /**
+   * The URL address of the site to receive the SAML response from the SP middleware.
+   */
+  returnTo?: string;
 }
 
 /**
- * Session config
+ * Configuration for the session management in AdaptAuth.
  */
-export interface AdaptAuthSessionConfig {
+export type SessionConfig = {
   /**
-   * JWT signing secret
-   */
-  secret: string;
-  /**
-   * Name for session cookie. Defaults to 'adapt-auth'
+   * The name of the session cookie.
+   * This is used to identify the session in the user's browser.
+   *
+   * Example: 'adapt-auth-session'
+   *
+   * @type {string}
    */
   name: string;
   /**
-   * Session length. Defaults to '12h'
+   * The secret used to sign the session cookie.
+   * This should be a strong, random string to ensure the security of the session.
+   *
+   * Example: 'supersecretkey'
+   *
+   * @type {string}
    */
-  expiresIn: string;
+  secret: string;
   /**
-   * Local path to redirect to after successful session creation
+   * The duration in seconds for which the session is valid.
+   * After this time, the session will expire and the user will need to log in again.
+   *
+   * Example: 3600 (1 hour)
+   *
+   * @type {number}
    */
-  loginRedirectUrl?: string;
-  /**
-   * Local path to redirect to after successful session destruction
-   */
-  logoutRedirectUrl: string;
-  /**
-   * Local path to redirect to after failed authorization
-   */
-  unauthorizedRedirectUrl?: string;
-}
-
-/**
- * SAML Config
- */
-export interface AdaptAuthSamlConfig {
-  /**
-   * Login entrypoint relay for adapt-sso-sp
-   */
-  serviceProviderLoginUrl: string;
-  /**
-   * SAML Application entity id
-   */
-  entity: string;
-  /**
-   * SAML public signing verification certificate
-   */
-  cert: string | string[];
-  /**
-   * Optional private key used to decrypt encrypted SAML assertions
-   */
-  decryptionKey?: string;
-  /**
-   * Absolute application for SAML document POST back
-   */
-  returnTo?: string;
-  /**
-   * Application origin for SAML document POST back
-   */
-  returnToOrigin?: string;
-  /**
-   * Application url path for SAML document POST back
-   */
-  returnToPath?: string;
-}
-
-/**
- * SDK configuration
- */
-export interface AdaptAuthConfig {
-  saml: AdaptAuthSamlConfig;
-  session: AdaptAuthSessionConfig;
-}
-
-/**
- * Auth user parsed from SAML profile or jwt
- */
-export interface AuthUser {
-  userName: string;
-  email: string;
-  firstName?: string;
-  lastName: string;
-  SUID?: string;
-  encodedSUID: string;
-}
-
-// Utility type useful for extending http request-like types
-export interface AuthUserReqExtender {
-  user?: AuthUser;
-}
-
-// Utility type that extends http request-like types
-export type WithAuthUser<R extends {}> = R & AuthUserReqExtender;
-
-// Http Request extended with AuthUser
-export type AuthUserRequest = WithAuthUser<Request>;
-
-/**
- * SAML RelayState Object
- */
-export interface SamlRelayState {
-  entity: string;
-  returnTo?: string;
-  finalDestination?: string;
-  [key: string]: string;
-}
-export interface SamlUserReqExtender {
-  user: AuthUser;
-  samlRelayState: SamlRelayState;
-}
-export type WithSamlUser<R extends {}> = R & SamlUserReqExtender;
-export type SamlUserRequest = WithSamlUser<Request>;
+  expiresIn: number;
+};

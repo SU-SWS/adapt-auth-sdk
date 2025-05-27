@@ -1,12 +1,16 @@
 {
   "compilerOptions": {
     "outDir": "./dist",
-    "module": "commonjs",
+    "module": "esnext",
     "declaration": true,
-    "target": "es5",
+    "target": "es2022",
     "allowJs": true,
-    "moduleResolution": "node"
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true
   },
   "include": ["src"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "dist"]
 }
