@@ -1,26 +1,10 @@
-import { ServiceProviderSettings } from "samlify/types/src/types";
-
-/**
- * AdaptAuthOptions defines the configuration options for the AdaptAuth middleware.
- */
-export type AdaptAuthOptions = Partial<{
-  /**
-   * Configuration for SAML authentication.
-   * This is used to set up the SAML service provider that AdaptAuth will use for authentication.
-   */
-  saml: SamlConfig;
-  /**
-   * Configuration for session management.
-   * This is used to manage user sessions, including session cookies and expiration.
-   */
-  session: SessionConfig;
-}>;
+import { type SamlOptions } from '@node-saml/node-saml';
 
 /**
  * Configuration for SAML authentication in AdaptAuth.
  * This configuration is used to set up the SAML service provider that AdaptAuth will use for authentication.
  */
-export type SamlConfig = ServiceProviderSettings & {
+export type SamlConfig = SamlOptions & {
   /**
    * The URL to redirect users to for logging in via the service provider.
    * This URL exists at the service provider and is in the format of `https://<entityId>.stanford.edu/api/sso/login`.
@@ -30,7 +14,19 @@ export type SamlConfig = ServiceProviderSettings & {
   /**
    * The URL address of the site to receive the SAML response from the SP middleware.
    */
-  returnTo?: string;
+  returnToOrigin?: string;
+
+  /**
+   * Return to path after login.
+   * This is the path to which the user will be redirected after a successful login.
+   */
+  returnToPath?: string;
+
+  /**
+   * Optional relay state parameter.
+   * This parameter can be used to maintain state between the authentication request and the response.
+   */
+  relayState?: string;
 }
 
 /**

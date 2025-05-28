@@ -40,9 +40,9 @@
   },
   "homepage": "https://github.com/SU-SWS/adapt-auth-sdk#readme",
   "dependencies": {
+    "@node-saml/node-saml": "^5.0.1",
     "cookie": "^0.4.1",
-    "iron-session": "^8.0.4",
-    "samlify": "^2.10.0"
+    "iron-session": "^8.0.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.27.0",

@@ -1,5 +1,5 @@
-import { SessionConfig, type AdaptAuthOptions, type SamlConfig } from './types'
-import { ServiceProvider, ServiceProviderInstance } from 'samlify';
+import { type SamlConfig } from './types'
+import { SAML } from '@node-saml/node-saml'
 
 /**
  * LoginOptions defines the options for the login method in AdaptAuth.
@@ -10,68 +10,62 @@ export type LoginOptions = {
    * If not provided, defaults to '/'.
    */
   destination?: string;
-  /**
-   * The relay state to include in the SAML authentication request.
-   * This can be used to maintain state between the authentication request and the response.
-   */
-  relayState?: string;
 };
 
 /**
- * AdaptAuth class provides methods for handling authentication, session management, and user retrieval.
+ * AuthenticateOptions defines the options for the authenticate method in AdaptAuth.
+ */
+export type AuthenticateOptions = {
+  /**
+   * The request object containing the SAML authentication response.
+   * This is typically the HTTP request that contains the SAML assertion.
+   */
+  req: Request;
+};
+
+/**
+ * AdaptAuth class provides methods for handling authentication.
  * It is designed to work with OIDCS SAML-based authentication systems.
  */
 export class AdaptAuth {
+
+  private provider: SAML;
+  private relayState?: string | null;
 
   /**
    * Configuration for SAML authentication.
    */
   private saml: SamlConfig = {
-    entityID: process.env.ADAPT_AUTH_SAML_ENTITY || 'adapt-sso-uat',
-    authnRequestsSigned: true,
+    issuer: process.env.ADAPT_AUTH_SAML_ENTITY || 'adapt-sso-uat',
+    audience: `https://${process.env.ADAPT_AUTH_SAML_ENTITY || 'adapt-sso-uat'}.stanford.edu`,
+    idpCert: process.env.ADAPT_AUTH_SAML_CERT || 'you-must-pass-cert',
+    privateKey: process.env.ADAPT_AUTH_SAML_CERT || 'you-must-pass-cert',
+    decryptionPvk: process.env.ADAPT_AUTH_SAML_DECRYPTION_KEY || 'you-must-pass-decryption-key',
+    returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN || 'http://localhost:3000/api/auth/acs',
+    returnToPath: process.env.ADAPT_AUTH_SAML_RETURN_PATH || '',
+    serviceProviderLoginUrl: process.env.ADAPT_AUTH_SAML_SP_URL || `https://${process.env.ADAPT_AUTH_SAML_ENTITY}.stanford.edu/api/sso/login`,
+    signatureAlgorithm: 'sha256',
+    additionalParams: {},
+    additionalAuthorizeParams: {},
+    identifierFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified',
+    allowCreate: false,
     wantAssertionsSigned: true,
-    privateKey: process.env.ADAPT_AUTH_SAML_CERT || 'you-must-pass-private-key',
-    isAssertionEncrypted: true,
-    requestSignatureAlgorithm: 'sha256',
-    encPrivateKey: process.env.ADAPT_AUTH_SAML_DECRYPTION_KEY || 'you-must-pass-enc-private-key',
-    assertionConsumerService: [{
-      Binding: 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST',
-      Location: `https://${process.env.ADAPT_AUTH_SAML_ENTITY}.stanford.edu/api/sso/auth`,
-    }],
-    signingCert: process.env.ADAPT_AUTH_SAML_CERT || 'you-must-pass-signing-cert',
-    encryptCert: process.env.ADAPT_AUTH_SAML_DECRYPTION_KEY || 'you-must-pass-encrypt-cert',
-    nameIDFormat: ['urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified'],
-    relayState: '',
-    serviceProviderLoginUrl: process.env.ADAPT_AUTH_SAML_LOGIN_URL || `https://${process.env.ADAPT_AUTH_SAML_ENTITY}.stanford.edu/api/sso/login`,
-    returnTo: process.env.ADAPT_AUTH_SAML_RETURN_URL || 'http://localhost:3000',
-  };
-
-  /**
-   * Configuration for session management.
-   */
-  private session: SessionConfig = {
-    secret: process.env.ADAPT_AUTH_SESSION_SECRET || '',
-    name: process.env.ADAPT_AUTH_SESSION_NAME || 'adapt-auth',
-    expiresIn: parseInt(process.env.ADAPT_AUTH_SESSION_EXPIRES_IN || '', 10) || 3600, // Default session expiration time (1 hour)
-  };
-
-  /**
-   * Instance of the SAML service provider.
-   * This is initialized with the samlify library to handle SAML authentication.
-   */
-  private provider: ServiceProviderInstance;
+    wantAuthnResponseSigned: true,
+    acceptedClockSkewMs: 60000, // 1 minute
+    callbackUrl: 'https://adapt-sso-uat.stanford.edu/api/sso/auth', // Hard coded as the SP middleware will handle this setting once it gets there.
+  } as SamlConfig;
 
   /**
    * Default constructor
    */
-  constructor(options?: AdaptAuthOptions) {
+  constructor(options?: Partial<SamlConfig>) {
     if (options) {
-      this.saml = { ...this.saml, ...options.saml };
-      this.session = { ...this.session, ...options.session };
+      // Remove callbackUrl as it is set to a hardcoded value by setting it to undefined
+      delete options.callbackUrl;
+      this.saml = { ...this.saml, ...options };
     }
 
-    // Initialize SAML with the provided configuration
-    this.provider = ServiceProvider(this.saml);
+    this.provider = new SAML(this.saml);
 
     console.log('AdaptAuth initialized');
   }
@@ -81,16 +75,14 @@ export class AdaptAuth {
    * This method redirects the user to the service provider's login URL.
    */
   public login(options?: LoginOptions): Response {
-    const { destination, relayState } = options || {};
-    console.log('Login method called');
+    const { destination } = options || {};
     // Return a Response with a redirect to the service provider login URL
     const parms = new URLSearchParams({
-      entity: this.saml.entityID!,
-      returnTo: this.saml.returnTo!,
+      entity: this.saml.issuer,
+      returnTo: this.saml.returnToOrigin!,
       final_destination: destination || '/',
-      relayState: relayState || this.saml.relayState || '',
     });
-    const URL = this.saml.serviceProviderLoginUrl || `https://${this.saml.entityID}.stanford.edu/api/sso/login`;
+    const URL = this.saml.serviceProviderLoginUrl || `https://${this.saml.issuer}.stanford.edu/api/sso/login`;
     console.log(`Redirecting to SAML login URL: ${URL}?${parms.toString()}`);
 
     return Response.redirect(`${URL}?${parms.toString()}`, 302);
@@ -117,14 +109,6 @@ export class AdaptAuth {
   /**
    * Helper to extract the saml relay state from a Request object
    */
-  public getSession() {
-    console.log('Get session method called');
-    // Implement session retrieval logic here
-  }
-
-  /**
-   * Helper to extract the saml relay state from a Request object
-   */
   public getUser() {
     console.log('Get user method called');
     // Implement user retrieval logic here
@@ -133,10 +117,41 @@ export class AdaptAuth {
   /**
    * Authenticate method to handle user authentication
    * This is a placeholder for the actual authentication logic
+   *
+   * @returns {boolean} - Returns false by default, indicating no user is authenticated.
    */
-  public authenticate() {
+  public async authenticate({ req }: AuthenticateOptions): Promise<any> {
     console.log('Authenticate method called');
-    // Implement authentication logic here
+    // Extract the SAML response from the request
+    const responseText = await req.text();
+    const SAMLResponse = new URLSearchParams(responseText).get('SAMLResponse') || null;
+    this.relayState = new URLSearchParams(responseText).get('RelayState') || null;
+
+    console.log('Extracting SAML response from request:', SAMLResponse);
+    if (!SAMLResponse) {
+      console.error('No SAML response found in the request');
+      return null; // No SAML response, cannot authenticate
+    }
+
+    // Log if a decryption key is configured, as node-saml will use it for internal decryption
+    if (this.saml.decryptionPvk) {
+      console.log('Decryption private key is configured. node-saml will attempt to decrypt EncryptedAssertion if present.');
+    } else {
+      console.warn('No decryption private key configured. EncryptedAssertions will not be decrypted by node-saml.');
+    }
+
+
+    // Validate the SAML response
+    let result;
+    try {
+      result = await this.provider.validatePostResponseAsync({ SAMLResponse });
+      console.log('SAML response validated successfully:', result);
+    } catch (error) {
+      console.error('Error validating SAML response:', error);
+      return null; // Validation failed
+    }
+
+    return result;
   }
 
   /**
