@@ -16,8 +16,28 @@ export type Config = {
 }
 
 /**
+ * Type for creating the session class.
+ */
+export type ConfigParams = Partial<Config> & {
+  setter: CookieStore | null;
+};
+
+/**
+ * Session data type.
+ * This is the type of data that will be stored in the session.
+ * It can be extended to include any user-specific data.
+ */
+export type SessionData = {
+  active: boolean;
+  data: Record<string, any>;
+};
+
+
+/**
  * The high-level type definition of the .get() and .set() methods
  * of { cookies() } from "next/headers"
+ *
+ * This is borrowed from the `iron-session` package because they don't export it.
  */
 interface CookieStore {
   get: (name: string) => {
@@ -30,21 +50,17 @@ interface CookieStore {
   };
 }
 
-export type AdaptAuthOptions = Partial<Config> & {
-  setter: CookieStore | null;
-}
-
 /**
  * AdaptSession class provides methods for managing user sessions.
- * It is designed to work with Next.js and uses iron-session for session management.
+ * It is designed to work anywhere and uses iron-session for session management.
  * This class allows creating, updating, checking, and destroying user sessions.
  * It also provides methods to check if a session is active.
  */
 class AdaptSession {
 
   private config: Config = {
-    name: 'adapt-auth-session',
-    secret: 'your-secret-key',
+    name: process.env.ADAPT_AUTH_SESSION_NAME || 'adapt-auth-session',
+    secret: process.env.ADAPT_AUTH_SESSION_SECRET || 'your-secret-key',
     setter: null, // This should be `cookies()` from next/headers
     cookie: {
       httpOnly: true,
@@ -54,7 +70,11 @@ class AdaptSession {
     },
   };
 
-  constructor(options: Config) {
+  constructor(options: ConfigParams) {
+    // Ensure that the setter is provided
+    if (!options.setter) {
+      throw new Error("Session setter (cookies) must be provided.");
+    }
     this.config = { ...this.config, ...options };
   }
 
@@ -82,7 +102,11 @@ class AdaptSession {
     const activeSession = await getIronSession<any>(this.config.setter!, {
       cookieName: this.config.name + '-session',
       password: this.config.secret,
-      cookieOptions: this.config.cookie,
+      cookieOptions: {
+        httpOnly: false, // Active session cookie can be accessed by client-side code
+        secure: true, // Ensure this is set to true in production
+        sameSite: 'lax', // Adjust as necessary for your application
+      },
     });
 
     activeSession.active = true; // Mark the session as active
@@ -94,9 +118,9 @@ class AdaptSession {
   /**
    * Checks if the user session is valid.
    * This function checks if the session cookie is valid and returns a boolean indicating the session status.
-   * @returns {Promise<boolean>} - Returns a promise that resolves to true if the session is valid, false otherwise.
+   * @returns {Promise<SessionData>} - Returns a promise that resolves to true if the session is valid, false otherwise.
    */
-  public async getSession(): Promise<boolean> {
+  public async getSession(): Promise<SessionData | null> {
     const session = await getIronSession<any>(this.config.setter!, {
       cookieName: this.config.name,
       password: this.config.secret,

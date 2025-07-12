@@ -101,7 +101,8 @@ export class AdaptAuth {
     wantAssertionsSigned: true,
     wantAuthnResponseSigned: true,
     acceptedClockSkewMs: 60000, // 1 minute
-    callbackUrl: 'https://adapt-sso-uat.stanford.edu/api/sso/auth', // Hard coded as the SP middleware will handle this setting once it gets there.
+    // Hard coded as the SP middleware here as it is required but it will change once it gets to the SP middleware site.
+    callbackUrl: 'https://adapt-sso-uat.stanford.edu/api/sso/auth',
   } as SamlConfig;
 
   /**
@@ -120,8 +121,9 @@ export class AdaptAuth {
    */
   constructor(options?: Partial<SamlConfig>) {
     if (options) {
-      // Remove callbackUrl as it is set to a hardcoded intentionally.
-      // The Middleware SP server will handle the callbackUrl.
+      // Remove callbackUrl as it is set to a hardcoded url intentionally.
+      // The Middleware SP server will handle the callbackUrl by adding it to the request
+      // based on the other request parameters being sent to it.
       delete options.callbackUrl;
       this.saml = { ...this.saml, ...options };
     }
