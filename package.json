@@ -17,6 +17,10 @@
     "./saml": {
       "import": "./dist/saml.js",
       "types": "./dist/saml.d.ts"
+    },
+    "./next": {
+      "import": "./dist/next.js",
+      "types": "./dist/next.d.ts"
     }
   },
   "files": [
@@ -33,8 +37,8 @@
     "type": "git",
     "url": "git+https://github.com/SU-SWS/adapt-auth-sdk.git"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Stanford Web Services",
+  "license": "GPL-3.0-only",
   "bugs": {
     "url": "https://github.com/SU-SWS/adapt-auth-sdk/issues"
   },
@@ -51,6 +55,9 @@
     "globals": "^16.2.0",
     "typescript": "^5",
     "typescript-eslint": "^8.32.1"
+  },
+  "optionalDependencies": {
+    "next": ">=14"
   },
   "engines": {
     "node": ">=22"

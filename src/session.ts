@@ -56,7 +56,7 @@ interface CookieStore {
  * This class allows creating, updating, checking, and destroying user sessions.
  * It also provides methods to check if a session is active.
  */
-class AdaptSession {
+export class AdaptSession {
 
   private config: Config = {
     name: process.env.ADAPT_AUTH_SESSION_NAME || 'adapt-auth-session',

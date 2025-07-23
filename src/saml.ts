@@ -2,7 +2,7 @@ import { type SamlConfig } from './types'
 import { SAML, type Profile } from '@node-saml/node-saml'
 
 /**
- * LoginOptions defines the options for the login method in AdaptAuth.
+ * LoginOptions defines the options for the login method in AdaptSAML.
  */
 export type LoginOptions = {
   /**
@@ -13,7 +13,7 @@ export type LoginOptions = {
 };
 
 /**
- * AuthenticateOptions defines the options for the authenticate method in AdaptAuth.
+ * AuthenticateOptions defines the options for the authenticate method in AdaptSAML.
  */
 export type AuthenticateOptions = {
   /**
@@ -55,10 +55,10 @@ export type SAMLResponse = {
 }
 
 /**
- * AdaptAuth class provides methods for handling authentication.
+ * AdaptSAML class provides methods for handling authentication.
  * It is designed to work with OIDCS SAML-based authentication systems.
  */
-export class AdaptAuth {
+export class AdaptSAML {
 
   /**
    * The SAML provider instance used for handling SAML authentication.
@@ -106,13 +106,13 @@ export class AdaptAuth {
   } as SamlConfig;
 
   /**
-   * Create and initialize the AdaptAuth instance with SAML configuration.
+   * Create and initialize the AdaptSAML instance with SAML configuration.
    * @param {Partial<SamlConfig>} options - Optional configuration to override default SAML settings.
    * If provided, these options will be merged with the default SAML configuration.
    * Note: The `callbackUrl` is intentionally omitted as it is set to a hardcoded value.
    *
    * @example
-   * const auth = new AdaptAuth({
+   * const auth = new AdaptSAML({
    *   issuer: 'my-custom-issuer',
    *   idpCert: 'my-custom-cert',
    *   returnToOrigin: 'https://myapp.com/auth/callback',
@@ -133,19 +133,17 @@ export class AdaptAuth {
   /**
    * Login method to handle user login
    * This method redirects the user to the service provider's login URL.
+   *
+   * @param {LoginOptions} options - Optional parameters for the login process.
+   * This can include a destination URL to redirect to after login.
+   * @return {Response} - Returns a Response object that redirects the user to the SAML service provider login URL.
+   * @throws {Error} - Throws an error if called in a browser environment, as it should only be called in a server context.
+   * @example
+   * const response = auth.login({ destination: '/dashboard' });
    */
   public login(options?: LoginOptions): Response {
-    const { destination } = options || {};
-    // Return a Response with a redirect to the service provider login URL
-    const parms = new URLSearchParams({
-      entity: this.saml.issuer,
-      returnTo: this.saml.returnToOrigin!,
-      final_destination: destination || '/',
-    });
-    const URL = this.saml.serviceProviderLoginUrl || `https://${this.saml.issuer}.stanford.edu/api/sso/login`;
-    console.log(`Redirecting to SAML login URL: ${URL}?${parms.toString()}`);
-
-    return Response.redirect(`${URL}?${parms.toString()}`, 302);
+    const URL = this.getLoginUrl(options);
+    return Response.redirect(URL, 302);
   }
 
   /**
@@ -154,8 +152,16 @@ export class AdaptAuth {
    *
    * @returns {string | null} - Returns the service provider login URL.
    */
-  public getLoginUrl() {
-    return this.saml.serviceProviderLoginUrl;
+  public getLoginUrl(options?: LoginOptions): string {
+    const { destination } = options || {};
+    // Return a Response with a redirect to the service provider login URL
+    const parms = new URLSearchParams({
+      entity: this.saml.issuer,
+      returnTo: this.saml.returnToOrigin!,
+      final_destination: destination || '/',
+    });
+    const URL = this.saml.serviceProviderLoginUrl || `https://${this.saml.issuer}.stanford.edu/api/sso/login`;
+    return `${URL}?${parms.toString()}`;
   }
 
   /**
@@ -279,6 +285,9 @@ export class AdaptAuth {
   }
 }
 
-export const auth = new AdaptAuth();
-
+/**
+ * Create an instance of AdaptSAML to use in your application.
+ * This instance can be used to call methods like login and authenticate.
+ */
+export const auth = new AdaptSAML();
 export default auth;
