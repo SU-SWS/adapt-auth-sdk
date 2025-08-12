@@ -25,6 +25,22 @@
     "./next": {
       "import": "./dist/next.js",
       "types": "./dist/next.d.ts"
+    },
+    "./performance": {
+      "import": "./dist/performance.js",
+      "types": "./dist/performance.d.ts"
+    },
+    "./rate-limit": {
+      "import": "./dist/rate-limit.js",
+      "types": "./dist/rate-limit.d.ts"
+    },
+    "./health": {
+      "import": "./dist/health.js",
+      "types": "./dist/health.d.ts"
+    },
+    "./retry": {
+      "import": "./dist/retry.js",
+      "types": "./dist/retry.d.ts"
     }
   },
   "files": [
