@@ -1,32 +1,17 @@
 # ADAPT Auth SDK Examples
 
-This directory contains comprehensive examples showing how to integrate ADAPT Auth SDK with different frameworks and environments.
+This directory contains comprehensive examples showing how to integrate ADAPT Auth SDK with Next.js and Gatsby frameworks for localhost development and Netlify production deployment.
 
 ## Available Examples
-
-### 🌐 Edge Functions
-**File:** [`edge-functions.md`](./edge-functions.md)
-
-**Use Case:** Ultra-fast session validation in edge computing environments
-
-**Platforms:**
-- Vercel Edge Functions
-- Netlify Edge Functions
-- Cloudflare Workers
-- Deno Deploy
-
-**Key Features:**
-- Read-only session validation
-- Zero Node.js dependencies
-- Sub-50ms response times
-- Works with Web APIs only
-
----
 
 ### ⚡ Next.js App Router
 **File:** [`nextjs-app-router.md`](./nextjs-app-router.md)
 
 **Use Case:** Full-stack React applications with server-side rendering
+
+**Environments:**
+- Localhost development
+- Netlify production deployment
 
 **Key Features:**
 - Built-in Next.js adapter (`createAdaptNext`)
@@ -40,83 +25,66 @@ This directory contains comprehensive examples showing how to integrate ADAPT Au
 
 ---
 
-### 🚀 Express.js
-**File:** [`express.md`](./express.md)
+### 🚀 Gatsby
+**File:** [`gatsby.md`](./gatsby.md)
 
-**Use Case:** Traditional Node.js web applications and APIs
+**Use Case:** Static site generation with dynamic authentication
+
+**Environments:**
+- Localhost development
+- Netlify production deployment
 
 **Key Features:**
-- Middleware-based authentication
-- Template engine integration (EJS)
+- Gatsby Functions for API endpoints
+- Client-side authentication guards
+- Static site optimization
+- Progressive enhancement
 - Role-based access control
-- Database integration examples
-- Session refresh middleware
-- Comprehensive error handling
+- Netlify edge function integration
 
-**Best For:** Traditional web applications, REST APIs, microservices
+**Best For:** Static sites, blogs, marketing sites with protected content
 
 ---
 
-### ⚡ Fastify
-**File:** [`fastify.md`](./fastify.md)
+### 🌐 Netlify Edge Functions
+**File:** [`edge-functions.md`](./edge-functions.md)
 
-**Use Case:** High-performance Node.js applications
+**Use Case:** Ultra-fast session validation at the edge
 
-**Key Features:**
-- Plugin-based architecture
-- Hook system integration
-- Rate limiting for auth routes
-- Schema validation
-- Route organization
-- Performance optimized
-
-**Best For:** High-throughput APIs, performance-critical applications, microservices
-
----
-
-### 🌐 Web Standards (Universal)
-**File:** [`web-standards.md`](./web-standards.md)
-
-**Use Case:** Runtime-agnostic applications using modern Web APIs
-
-**Platforms:**
-- Node.js 18+
-- Bun
-- Deno
-- Any Web Standards compatible runtime
+**Environments:**
+- Localhost development with Netlify CLI
+- Netlify production edge deployment
 
 **Key Features:**
-- Uses only Web Standards (Request, Response, URL, etc.)
-- Runtime detection and adaptation
-- Zero framework dependencies
-- Docker deployment examples
+- Read-only session validation
+- Zero Node.js dependencies
+- Sub-50ms response times
+- Works with Web APIs only
 
-**Best For:** Cross-platform deployment, modern runtimes, serverless functions
+**Best For:** Performance-critical session checks, protecting static content
 
 ---
 
 ## Quick Comparison
 
-| Example | Performance | Complexity | Use Case | Runtime |
-|---------|-------------|------------|----------|---------|
-| **Edge Functions** | ⭐⭐⭐⭐⭐ | ⭐⭐ | Session validation only | Edge |
-| **Next.js** | ⭐⭐⭐⭐ | ⭐⭐⭐ | Full-stack React apps | Node.js |
-| **Express** | ⭐⭐⭐ | ⭐⭐⭐ | Traditional web apps | Node.js |
-| **Fastify** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | High-performance APIs | Node.js |
-| **Web Standards** | ⭐⭐⭐⭐ | ⭐⭐ | Universal deployment | Any |
+| Example | Performance | Complexity | Use Case | Deployment |
+|---------|-------------|------------|----------|------------|
+| **Next.js** | ⭐⭐⭐⭐ | ⭐⭐⭐ | Full-stack React apps | Netlify |
+| **Gatsby** | ⭐⭐⭐⭐⭐ | ⭐⭐ | Static sites + auth | Netlify |
+| **Edge Functions** | ⭐⭐⭐⭐⭐ | ⭐⭐ | Session validation only | Netlify |
 
 ## Common Configuration
 
-All examples use the same basic configuration pattern:
+All examples use the same basic configuration pattern optimized for localhost development and Netlify production:
 
-```typescript
-// Required environment variables
+```bash
+# Required environment variables
 ADAPT_AUTH_SAML_ENTITY=your-entity-id
 ADAPT_AUTH_SAML_CERT=your-certificate-string
-ADAPT_AUTH_SAML_RETURN_ORIGIN=https://your-app.com
+ADAPT_AUTH_SAML_RETURN_ORIGIN=http://localhost:3000  # or https://yoursite.netlify.app
 ADAPT_AUTH_SESSION_SECRET=your-32-character-secret-key
 
-// Optional environment variables
+# Optional environment variables
 ADAPT_AUTH_RELAY_STATE_SECRET=another-32-character-secret-key
 ```
 
@@ -144,93 +112,91 @@ const auth = createAdaptNext({
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 1 week
+      // Session-only cookies (no maxAge)
     },
   },
 });
 ```
 
-## Architecture Patterns
+## Deployment Architecture
 
-### 🏗️ Hybrid Edge + Server (Recommended)
+### 🏗️ Localhost + Netlify (Recommended)
 
-Use edge functions for fast session validation and Node.js servers for full SAML processing:
+Optimized for local development and Netlify production deployment:
 
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Browser   │────│    Edge     │────│  Node.js    │
-│             │    │  Function   │    │   Server    │
+│   Browser   │────│  Localhost  │────│   Netlify   │
+│             │    │     Dev     │    │ Production  │
 │             │    │             │    │             │
-│ UI + Forms  │    │ Session     │    │ SAML +      │
-│             │    │ Validation  │    │ Session     │
-│             │    │             │    │ Creation    │
+│ UI + Forms  │    │ Next.js/    │    │ Functions + │
+│             │    │ Gatsby      │    │ Edge        │
+│             │    │             │    │ Functions   │
 └─────────────┘    └─────────────┘    └─────────────┘
 ```
 
 **Implementation:**
-- Edge: Use [`edge-functions.md`](./edge-functions.md) for session checking
-- Server: Use [`nextjs-app-router.md`](./nextjs-app-router.md) or [`express.md`](./express.md) for authentication
-
-### 🖥️ Server-Side Only (Traditional)
-
-Full authentication and session management on the server:
-
-```
-┌─────────────┐    ┌─────────────┐
-│   Browser   │────│  Node.js    │
-│             │    │   Server    │
-│             │    │             │
-│ UI + Forms  │    │ SAML +      │
-│             │    │ Sessions +  │
-│             │    │ Validation  │
-└─────────────┘    └─────────────┘
-```
-
-**Implementation:**
-- Use [`express.md`](./express.md), [`fastify.md`](./fastify.md), or [`web-standards.md`](./web-standards.md)
-
-### ☁️ Serverless Functions
-
-Authentication spread across multiple serverless functions:
-
-```
-┌─────────────┐    ┌─────────────┐
-│   Browser   │────│ Serverless  │
-│             │    │ Functions   │
-│             │    │             │
-│ UI + Forms  │    │ /auth/login │
-│             │    │ /auth/acs   │
-│             │    │ /api/*      │
-└─────────────┘    └─────────────┘
-```
-
-**Implementation:**
-- Use [`web-standards.md`](./web-standards.md) for individual functions
-- Use [`nextjs-app-router.md`](./nextjs-app-router.md) for Vercel deployment
+- Development: Use framework dev servers (Next.js: `npm run dev`, Gatsby: `gatsby develop`)
+- Production: Deploy to Netlify with automatic CI/CD
+- Edge: Optional Netlify edge functions for performance optimization
 
 ## Getting Started
 
-1. **Choose your platform** from the examples above
+1. **Choose your framework** from the examples above
 2. **Set up environment variables** (see common configuration)
-3. **Follow the specific example** for your chosen platform
+3. **Follow the specific example** for your chosen framework
 4. **Test authentication flow**:
-   - Visit `/auth/login`
+   - Visit `/auth/login` or click login button
    - Complete Stanford SAML authentication
    - Access protected routes
    - Test logout functionality
 
+### Local Development
+
+```bash
+# Next.js
+npm run dev          # http://localhost:3000
+
+# Gatsby
+gatsby develop       # http://localhost:8000
+
+# Netlify CLI (for edge functions)
+netlify dev          # http://localhost:8888
+```
+
+### Production Deployment
+
+```bash
+# Deploy to Netlify
+netlify deploy --prod
+
+# Or connect GitHub repository for automatic deployments
+```
+
 ## Security Best Practices
 
-All examples implement these security measures:
+All examples implement these security measures optimized for localhost and Netlify:
 
 - ✅ **HttpOnly cookies** prevent XSS attacks
-- ✅ **Secure cookies** in production (HTTPS only)
+- ✅ **Secure cookies** in production (HTTPS only on Netlify)
 - ✅ **SameSite protection** prevents CSRF
 - ✅ **HMAC-signed RelayState** prevents tampering
-- ✅ **Session expiration** with configurable TTL
+- ✅ **Session-only cookies** expire when browser closes
 - ✅ **Clock skew tolerance** for SAML validation
 - ✅ **CSRF token validation** for state changes
 - ✅ **Input sanitization** for returnTo URLs
+
+### Environment-Specific Security
+
+**Localhost Development:**
+- HTTP allowed for local development
+- Relaxed cookie security for testing
+- Detailed error logging enabled
+
+**Netlify Production:**
+- HTTPS required (automatic with Netlify)
+- Full cookie security enabled
+- Error logging minimized for security
 
 ## Troubleshooting
 
@@ -239,7 +205,7 @@ All examples implement these security measures:
 1. **"Authentication failed"**
    - Check SAML certificate format
    - Verify entity ID matches IdP configuration
-   - Ensure callback URL is registered
+   - Ensure callback URL is registered with Stanford WebAuth
 
 2. **"Session invalid"**
    - Verify session secret is 32+ characters
@@ -250,6 +216,18 @@ All examples implement these security measures:
    - Include CSRF token in forms
    - Check SameSite cookie settings
    - Verify origin headers
+
+### Localhost vs Netlify Issues
+
+4. **"Works locally but not on Netlify"**
+   - Update `ADAPT_AUTH_SAML_RETURN_ORIGIN` to Netlify URL
+   - Check environment variables in Netlify dashboard
+   - Verify secure cookie settings for production
+
+5. **"Netlify Functions not found"**
+   - Check `netlify.toml` configuration
+   - Ensure functions are in correct directory
+   - Verify redirects for API routes
 
 ### Debug Mode
 
@@ -269,5 +247,6 @@ Each example includes testing strategies:
 - Unit tests for authentication logic
 - Integration tests for full auth flow
 - Mock configurations for development
+- Netlify preview deployments for staging
 
 For more detailed information, explore the individual example files linked above.
