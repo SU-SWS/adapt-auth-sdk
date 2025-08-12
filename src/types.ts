@@ -1,5 +1,3 @@
-import { type SamlOptions } from '@node-saml/node-saml';
-
 /**
  * User data structure for session storage
  */
@@ -41,81 +39,299 @@ export interface Logger {
 }
 
 /**
- * Configuration for SAML authentication in AdaptAuth.
+ * Required SAML configuration (minimal fields developers must provide)
  */
-export type SamlConfig = SamlOptions & {
+export interface RequiredSamlConfig {
   /**
-   * The URL to redirect users to for logging in via the service provider.
+   * SAML entity/issuer identifier (required)
+   */
+  issuer: string;
+
+  /**
+   * IdP certificate for validating SAML responses (required)
+   */
+  idpCert: string;
+
+  /**
+   * Base URL of your application where SAML responses are received (required)
+   */
+  returnToOrigin: string;
+}
+
+/**
+ * Optional SAML configuration with sensible defaults
+ */
+export interface OptionalSamlConfig {
+  /**
+   * URL to initiate SAML login via service provider
+   * @default `https://${issuer}.stanford.edu/api/sso/login`
    */
   serviceProviderLoginUrl?: string;
 
   /**
-   * The URL address of the site to receive the SAML response from the SP middleware.
-   */
-  returnToOrigin?: string;
-
-  /**
-   * Return to path after login.
+   * Path component for ACS (Assertion Consumer Service) URL
+   * @default ''
    */
   returnToPath?: string;
 
   /**
-   * Whether to include returnTo URL in RelayState
+   * Whether to include returnTo URL in RelayState for post-login redirects
+   * @default true
    */
   includeReturnTo?: boolean;
 
   /**
    * Maximum age for RelayState validation in seconds
+   * @default 300 (5 minutes)
    */
   relayStateMaxAge?: number;
 
   /**
-   * HMAC secret for RelayState signing
+   * HMAC secret for signing RelayState tokens (recommended for security)
+   * @default process.env.ADAPT_AUTH_RELAY_STATE_SECRET
    */
   relayStateSecret?: string;
-};
+
+  /**
+   * Private key for SAML signing (if different from idpCert)
+   * @default process.env.ADAPT_AUTH_SAML_PRIVATE_KEY || idpCert
+   */
+  privateKey?: string;
+
+  /**
+   * Private key for SAML decryption
+   * @default process.env.ADAPT_AUTH_SAML_DECRYPTION_KEY
+   */
+  decryptionPvk?: string;
+
+  /**
+   * SAML audience (usually entity URL)
+   * @default `https://${issuer}.stanford.edu`
+   */
+  audience?: string;
+
+  /**
+   * Require signed SAML assertions
+   * @default true
+   */
+  wantAssertionsSigned?: boolean;
+
+  /**
+   * Require signed SAML responses
+   * @default true
+   */
+  wantAuthnResponseSigned?: boolean;
+
+  /**
+   * Allowed clock skew in milliseconds for time-based validations
+   * @default 60000 (1 minute)
+   */
+  acceptedClockSkewMs?: number;
+
+  /**
+   * SAML signature algorithm
+   * @default 'sha256'
+   */
+  signatureAlgorithm?: string;
+
+  /**
+   * SAML identifier format
+   * @default 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified'
+   */
+  identifierFormat?: string;
+
+  /**
+   * Allow creation of new accounts
+   * @default false
+   */
+  allowCreate?: boolean;
+
+  /**
+   * Additional parameters for SAML requests
+   * @default {}
+   */
+  additionalParams?: Record<string, unknown>;
+
+  /**
+   * Additional authorization parameters
+   * @default {}
+   */
+  additionalAuthorizeParams?: Record<string, unknown>;
+}
 
 /**
- * Configuration for session management in AdaptAuth.
+ * Complete SAML configuration (combines required and optional)
  */
-export type SessionConfig = {
+export type SamlConfig = RequiredSamlConfig & OptionalSamlConfig;
+
+/**
+ * Required session configuration (minimal fields developers must provide)
+ */
+export interface RequiredSessionConfig {
   /**
-   * The name of the session cookie.
+   * Session cookie name (required)
    */
   name: string;
 
   /**
-   * The secret used to sign the session cookie.
+   * Secret for encrypting session data - must be 32+ characters (required)
    */
   secret: string;
+}
 
+/**
+ * Optional session configuration with sensible defaults
+ */
+export interface OptionalSessionConfig {
   /**
    * Cookie configuration options
    */
   cookie?: {
+    /**
+     * Prevent client-side JavaScript access to cookie
+     * @default true
+     */
     httpOnly?: boolean;
+
+    /**
+     * Only send cookie over HTTPS in production
+     * @default true
+     */
     secure?: boolean;
+
+    /**
+     * SameSite cookie attribute for CSRF protection
+     * @default 'lax'
+     */
     sameSite?: 'lax' | 'strict' | 'none';
+
+    /**
+     * Cookie path
+     * @default '/'
+     */
     path?: string;
+
+    /**
+     * Cookie domain (optional)
+     */
     domain?: string;
+
+    /**
+     * Cookie max age in seconds (optional, default is session cookie)
+     */
     maxAge?: number;
   };
 
   /**
    * Cookie size warning threshold in bytes
+   * @default 3500
    */
   cookieSizeThreshold?: number;
-};
+}
 
 /**
- * Authentication configuration
+ * Complete session configuration (combines required and optional)
  */
-export type AuthConfig = {
-  saml: SamlConfig;
-  session: SessionConfig;
+export type SessionConfig = RequiredSessionConfig & OptionalSessionConfig;
+
+/**
+ * Required authentication configuration (minimal fields developers must provide)
+ */
+export interface RequiredAuthConfig {
+  /**
+   * SAML configuration - only required fields need to be provided
+   */
+  saml: RequiredSamlConfig;
+
+  /**
+   * Session configuration - only required fields need to be provided
+   */
+  session: RequiredSessionConfig;
+}
+
+/**
+ * Optional authentication configuration with sensible defaults
+ */
+export interface OptionalAuthConfig {
+  /**
+   * Optional SAML configuration (will use sensible defaults)
+   */
+  saml?: OptionalSamlConfig;
+
+  /**
+   * Optional session configuration (will use sensible defaults)
+   */
+  session?: OptionalSessionConfig;
+
+  /**
+   * Custom logger implementation
+   * @default DefaultLogger
+   */
   logger?: Logger;
+
+  /**
+   * Enable verbose logging for debugging
+   * @default false
+   */
   verbose?: boolean;
-};
+
+  /**
+   * Authentication event callbacks
+   */
+  callbacks?: AuthCallbacks;
+}
+
+/**
+ * Complete authentication configuration (combines required and optional)
+ *
+ * @example
+ * ```typescript
+ * // Minimal configuration (only required fields)
+ * const config = {
+ *   saml: {
+ *     issuer: 'your-entity-id',
+ *     idpCert: 'your-certificate',
+ *     returnToOrigin: 'https://your-app.com'
+ *   },
+ *   session: {
+ *     name: 'my-session',
+ *     secret: 'your-32-character-secret-key!!'
+ *   }
+ * };
+ *
+ * // With optional configurations
+ * const configWithOptions = {
+ *   saml: {
+ *     issuer: 'your-entity-id',
+ *     idpCert: 'your-certificate',
+ *     returnToOrigin: 'https://your-app.com',
+ *     // Optional: customize service provider URL
+ *     serviceProviderLoginUrl: 'https://custom-sso.stanford.edu/login',
+ *     // Optional: configure RelayState security
+ *     relayStateSecret: 'hmac-secret-for-signing'
+ *   },
+ *   session: {
+ *     name: 'my-session',
+ *     secret: 'your-32-character-secret-key!!',
+ *     // Optional: customize cookie settings
+ *     cookie: {
+ *       secure: true,
+ *       sameSite: 'strict'
+ *     }
+ *   },
+ *   // Optional: enable debug logging
+ *   verbose: true,
+ *   // Optional: customize user mapping
+ *   callbacks: {
+ *     mapProfile: (profile) => ({
+ *       id: profile.encodedSUID,
+ *       email: `${profile.userName}@stanford.edu`
+ *     })
+ *   }
+ * };
+ * ```
+ */
+export type AuthConfig = RequiredAuthConfig & OptionalAuthConfig;
 
 /**
  * Callbacks for customizing authentication behavior

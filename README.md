@@ -28,14 +28,65 @@ import { createAdaptNext } from 'adapt-auth-sdk';
 
 export const auth = createAdaptNext({
   saml: {
+    // Required fields only - sensible defaults provided for everything else
     issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
     idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
     returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!,
   },
   session: {
+    // Required fields only - sensible defaults provided for everything else
     name: 'adapt-auth-session',
     secret: process.env.ADAPT_AUTH_SESSION_SECRET!,
   },
+});
+```
+
+#### Optional Configuration
+
+The SDK uses sensible defaults, but you can customize any behavior:
+
+```typescript
+export const auth = createAdaptNext({
+  saml: {
+    // Required
+    issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
+    idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
+    returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!,
+
+    // Optional - customize as needed
+    serviceProviderLoginUrl: 'https://custom.stanford.edu/api/sso/login',
+    returnToPath: '/custom/callback',
+    includeReturnTo: true,
+    relayStateMaxAge: 300, // 5 minutes
+    relayStateSecret: process.env.ADAPT_AUTH_RELAY_STATE_SECRET,
+    privateKey: process.env.ADAPT_AUTH_SAML_PRIVATE_KEY,
+    decryptionPvk: process.env.ADAPT_AUTH_SAML_DECRYPTION_KEY,
+    wantAssertionsSigned: true,
+    wantAuthnResponseSigned: true,
+    acceptedClockSkewMs: 60000, // 1 minute
+    allowCreate: false,
+    additionalParams: { custom: 'value' },
+    additionalAuthorizeParams: { prompt: 'login' },
+  },
+  session: {
+    // Required
+    name: 'adapt-auth-session',
+    secret: process.env.ADAPT_AUTH_SESSION_SECRET!,
+
+    // Optional - customize as needed
+    cookie: {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 86400, // 1 day
+    },
+    cookieSizeThreshold: 3500,
+  },
+
+  // Optional global settings
+  logger: customLogger,
+  verbose: process.env.NODE_ENV === 'development',
 });
 ```
 

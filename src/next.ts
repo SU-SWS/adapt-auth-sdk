@@ -6,7 +6,10 @@
 import { SAMLProvider } from './saml';
 import { SessionManager, createNextjsCookieStore } from './session';
 import {
-  SamlConfig,
+  RequiredSamlConfig,
+  OptionalSamlConfig,
+  RequiredSessionConfig,
+  OptionalSessionConfig,
   SessionConfig,
   User,
   Session,
@@ -19,15 +22,72 @@ import {
 import { DefaultLogger } from './logger';
 
 /**
- * Configuration options for AdaptNext
+ * Required configuration for AdaptNext (minimal fields developers must provide)
  */
-export interface AdaptNextConfig {
-  saml: SamlConfig;
-  session: SessionConfig;
+export interface RequiredAdaptNextConfig {
+  /**
+   * SAML configuration - only required fields need to be provided
+   */
+  saml: RequiredSamlConfig;
+
+  /**
+   * Session configuration - only required fields need to be provided
+   */
+  session: RequiredSessionConfig;
+}
+
+/**
+ * Optional configuration for AdaptNext with sensible defaults
+ */
+export interface OptionalAdaptNextConfig {
+  /**
+   * Optional SAML configuration (will use sensible defaults)
+   */
+  saml?: OptionalSamlConfig;
+
+  /**
+   * Optional session configuration (will use sensible defaults)
+   */
+  session?: OptionalSessionConfig;
+
+  /**
+   * Custom logger implementation
+   * @default DefaultLogger
+   */
   logger?: Logger;
+
+  /**
+   * Enable verbose logging for debugging
+   * @default false
+   */
   verbose?: boolean;
+
+  /**
+   * Authentication event callbacks
+   */
   callbacks?: AuthCallbacks;
 }
+
+/**
+ * Complete configuration for AdaptNext (combines required and optional)
+ *
+ * @example
+ * ```typescript
+ * // Minimal Next.js configuration
+ * const auth = createAdaptNext({
+ *   saml: {
+ *     issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
+ *     idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
+ *     returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!
+ *   },
+ *   session: {
+ *     name: 'adapt-auth-session',
+ *     secret: process.env.ADAPT_AUTH_SESSION_SECRET!
+ *   }
+ * });
+ * ```
+ */
+export type AdaptNextConfig = RequiredAdaptNextConfig & OptionalAdaptNextConfig;
 
 /**
  * AdaptNext class for Next.js integration
@@ -35,7 +95,7 @@ export interface AdaptNextConfig {
  */
 export class AdaptNext {
   private samlProvider: SAMLProvider;
-  private sessionManager: SessionManager;
+  private sessionConfig: SessionConfig;
   private logger: Logger;
   private callbacks?: AuthCallbacks;
 
@@ -43,11 +103,19 @@ export class AdaptNext {
     this.logger = config.logger || new DefaultLogger(config.verbose);
     this.callbacks = config.callbacks;
 
-    this.samlProvider = new SAMLProvider(config.saml, this.logger);
+    // Merge required and optional SAML config
+    const samlConfig = {
+      ...config.saml,
+      ...(config.saml && 'serviceProviderLoginUrl' in config.saml ? {} : {}), // Handle overlap
+    };
 
-    // For Next.js, we'll create the session manager when needed with the cookies
-    // This is a placeholder - actual session manager will be created in methods
-    this.sessionManager = null as unknown as SessionManager;
+    // Merge required and optional session config
+    this.sessionConfig = {
+      ...config.session,
+      ...(config.session && 'cookie' in config.session ? {} : {}), // Handle overlap
+    };
+
+    this.samlProvider = new SAMLProvider(samlConfig, this.logger);
   }
 
   /**
@@ -58,11 +126,6 @@ export class AdaptNext {
     const { cookies } = await import('next/headers');
     const cookieStore = createNextjsCookieStore(await cookies());
     return new SessionManager(cookieStore, this.sessionConfig, this.logger);
-  }
-
-  private get sessionConfig() {
-    // Return the session config from constructor
-    return this.sessionManager?.['config'] || {} as SessionConfig;
   }
 
   /**

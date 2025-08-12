@@ -1,4 +1,4 @@
-import { SAML } from '@node-saml/node-saml';
+import { SAML, SamlConfig as NodeSamlConfig } from '@node-saml/node-saml';
 import {
   SamlConfig,
   SAMLProfile,
@@ -8,7 +8,7 @@ import {
   User,
   Logger,
   RelayStatePayload,
-  AuthError
+  AuthError,
 } from './types';
 import { AuthUtils } from './utils';
 import { DefaultLogger } from './logger';
@@ -24,47 +24,72 @@ export class SAMLProvider {
   constructor(config: SamlConfig, logger?: Logger) {
     this.logger = logger || new DefaultLogger();
 
-    // Build configuration with defaults
-    const baseConfig = {
-      issuer: config.issuer || process.env.ADAPT_AUTH_SAML_ENTITY || 'adapt-sso-uat',
+    // Build configuration with defaults and environment variable fallbacks
+    const samlConfig = {
+      // Required fields (must be provided)
+      issuer: config.issuer || process.env.ADAPT_AUTH_SAML_ENTITY,
+      idpCert: config.idpCert || process.env.ADAPT_AUTH_SAML_CERT,
+      returnToOrigin: config.returnToOrigin || process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN,
+
+      // Optional fields with sensible defaults
       audience: config.audience || `https://${config.issuer || process.env.ADAPT_AUTH_SAML_ENTITY || 'adapt-sso-uat'}.stanford.edu`,
-      idpCert: config.idpCert || process.env.ADAPT_AUTH_SAML_CERT || '',
       privateKey: config.privateKey || process.env.ADAPT_AUTH_SAML_PRIVATE_KEY || config.idpCert || process.env.ADAPT_AUTH_SAML_CERT || '',
       decryptionPvk: config.decryptionPvk || process.env.ADAPT_AUTH_SAML_DECRYPTION_KEY || '',
 
-      // Service provider configuration
+      // Service provider configuration with defaults
       serviceProviderLoginUrl: config.serviceProviderLoginUrl || process.env.ADAPT_AUTH_SAML_SP_URL || `https://${config.issuer || process.env.ADAPT_AUTH_SAML_ENTITY}.stanford.edu/api/sso/login`,
-      returnToOrigin: config.returnToOrigin || process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN || 'http://localhost:3000/api/auth/acs',
       returnToPath: config.returnToPath || process.env.ADAPT_AUTH_SAML_RETURN_PATH || '',
 
-      // RelayState configuration
+      // RelayState configuration with defaults
       includeReturnTo: config.includeReturnTo ?? true,
-      relayStateMaxAge: config.relayStateMaxAge || 300,
+      relayStateMaxAge: config.relayStateMaxAge ?? 300,
       relayStateSecret: config.relayStateSecret || process.env.ADAPT_AUTH_RELAY_STATE_SECRET || '',
 
-      // SAML protocol settings
+      // SAML protocol settings with secure defaults
       signatureAlgorithm: config.signatureAlgorithm || 'sha256',
       identifierFormat: config.identifierFormat || 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified',
       allowCreate: config.allowCreate ?? false,
       wantAssertionsSigned: config.wantAssertionsSigned ?? true,
       wantAuthnResponseSigned: config.wantAuthnResponseSigned ?? true,
-      acceptedClockSkewMs: config.acceptedClockSkewMs || 60000,
+      acceptedClockSkewMs: config.acceptedClockSkewMs ?? 60000,
+
+      // Additional parameters with defaults
+      additionalParams: config.additionalParams || {},
+      additionalAuthorizeParams: config.additionalAuthorizeParams || {},
 
       // Hardcoded callback URL (managed by SP middleware)
       callbackUrl: 'https://adapt-sso-uat.stanford.edu/api/sso/auth',
-
-      // Additional parameters
-      additionalParams: config.additionalParams || {},
-      additionalAuthorizeParams: config.additionalAuthorizeParams || {},
     };
 
-    // Merge with any additional config options
-    this.config = { ...baseConfig, ...config } as Required<SamlConfig>;
+    // Store the merged configuration
+    this.config = samlConfig as Required<SamlConfig>;
 
     // Validate required configuration
     this.validateConfig();
 
-    this.provider = new SAML(this.config);
+    // Create SAML provider with compatible config
+    const nodesamlConfig = {
+      issuer: samlConfig.issuer,
+      idpCert: samlConfig.idpCert,
+      audience: samlConfig.audience,
+      privateKey: samlConfig.privateKey,
+      decryptionPvk: samlConfig.decryptionPvk,
+      identifierFormat: samlConfig.identifierFormat,
+      wantAssertionsSigned: samlConfig.wantAssertionsSigned,
+      wantAuthnResponseSigned: samlConfig.wantAuthnResponseSigned,
+      acceptedClockSkewMs: samlConfig.acceptedClockSkewMs,
+      allowCreate: samlConfig.allowCreate,
+      callbackUrl: samlConfig.callbackUrl,
+      // Convert additionalParams to strings for node-saml compatibility
+      additionalParams: Object.fromEntries(
+        Object.entries(samlConfig.additionalParams).map(([k, v]) => [k, String(v)])
+      ),
+      additionalAuthorizeParams: Object.fromEntries(
+        Object.entries(samlConfig.additionalAuthorizeParams).map(([k, v]) => [k, String(v)])
+      ),
+    };
+
+    this.provider = new SAML(nodesamlConfig as NodeSamlConfig);
 
     this.logger.debug('SAML provider initialized', {
       issuer: this.config.issuer,
