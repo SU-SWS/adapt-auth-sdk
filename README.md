@@ -8,6 +8,8 @@ A framework-agnostic TypeScript authentication library for ADAPT SAML integratio
 - **TypeScript First**: Complete TypeScript implementation with strict typing
 - **Security Focused**: HMAC-signed RelayState, encrypted sessions, CSRF protection
 - **Serverless Ready**: Cookie-only sessions, no server-side storage required
+- **Edge Compatible**: Session validation in edge functions for ultra-fast performance
+- **Stanford WebAuth**: Native Stanford SAML integration
 - **Developer Friendly**: Simple API inspired by Auth.js patterns
 
 ## Quick Start
@@ -61,6 +63,8 @@ export async function POST(request: Request) {
 ⚙️ **[Configuration](./docs/configuration.md)** - Complete configuration reference and environment variables
 
 🔒 **[Security](./docs/security.md)** - Security features, best practices, and threat protection
+
+⚡ **[Edge Functions](./docs/edge-functions.md)** - Ultra-fast session validation in edge environments
 
 🚀 **[Advanced Usage](./docs/advanced-usage.md)** - Custom implementations, performance optimization, and advanced patterns
 
@@ -136,6 +140,22 @@ const auth = createAdaptNext({
     }),
   },
 });
+```
+
+### Edge Function Session Validation
+
+```typescript
+// Ultra-fast session checking in edge functions
+import { isAuthenticatedEdge } from 'adapt-auth-sdk/edge-session';
+
+export async function middleware(request: NextRequest) {
+  const isAuthenticated = await isAuthenticatedEdge(request);
+  if (!isAuthenticated && request.nextUrl.pathname.startsWith('/protected')) {
+    return Response.redirect(new URL('/api/auth/login', request.url));
+  }
+}
+
+export const config = { runtime: 'edge' };
 ```
 
 ## License

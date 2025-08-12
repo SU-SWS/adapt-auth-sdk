@@ -163,8 +163,8 @@ export class AuthUtils {
    * Base64 URL encode
    */
   static base64UrlEncode(data: string): string {
-    // Use Buffer for proper Unicode handling in Node.js
-    const base64 = Buffer.from(data, 'utf8').toString('base64');
+    // Use native btoa with proper Unicode handling for edge function compatibility
+    const base64 = btoa(unescape(encodeURIComponent(data)));
     return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   }
 
@@ -175,7 +175,9 @@ export class AuthUtils {
     // Add padding if needed
     const padded = encoded + '==='.slice(0, (4 - encoded.length % 4) % 4);
     const base64 = padded.replace(/-/g, '+').replace(/_/g, '/');
-    return Buffer.from(base64, 'base64').toString('utf8');
+
+    // Use native atob with proper Unicode handling for edge function compatibility
+    return decodeURIComponent(escape(atob(base64)));
   }
 
   /**
@@ -184,7 +186,10 @@ export class AuthUtils {
   private static arrayBufferToBase64Url(buffer: ArrayBuffer): string {
     const bytes = new Uint8Array(buffer);
     const binary = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
-    const base64 = Buffer.from(binary, 'binary').toString('base64');
+
+    // Use native btoa for edge function compatibility
+    const base64 = btoa(binary);
+
     return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   }
 
