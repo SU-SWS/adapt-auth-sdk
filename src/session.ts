@@ -260,23 +260,6 @@ export class SessionManager {
 }
 
 /**
- * Create a cookie store adapter for Next.js
- */
-export function createNextjsCookieStore(cookies: unknown): CookieStore {
-  const cookiesObj = cookies as { get: (name: string) => { name: string; value: string } | undefined; set: (name: string, value: string, options?: CookieOptions) => void };
-
-  return {
-    get: (name: string) => cookiesObj.get(name),
-    set: (name: string, value: string, options?: CookieOptions) => {
-      cookiesObj.set(name, value, options);
-    },
-    delete: (name: string) => {
-      cookiesObj.set(name, '', { maxAge: 0 });
-    },
-  };
-}
-
-/**
  * Create a cookie store adapter for Express.js
  */
 export function createExpressCookieStore(req: unknown, res: unknown): CookieStore {

@@ -96,22 +96,6 @@ export class EdgeSessionReader {
   }
 
   /**
-   * Get session from Next.js cookies
-   */
-  async getSessionFromNextCookies(cookies: { get?: (name: string) => { value: string } | undefined }): Promise<Session | null> {
-    if (!cookies.get) {
-      return null;
-    }
-
-    const cookie = cookies.get(this.cookieName);
-    if (!cookie) {
-      return null;
-    }
-
-    return this.decryptSession(cookie.value);
-  }
-
-  /**
    * Check if session exists and is valid
    */
   async isAuthenticated(request: Request): Promise<boolean> {
@@ -323,28 +307,4 @@ export function createEdgeSessionReader(
   }
 
   return new EdgeSessionReader(sessionSecret, sessionName, logger);
-}
-
-/**
- * Convenience function for Next.js edge middleware
- */
-export async function getSessionFromNextRequest(
-  request: Request,
-  secret?: string,
-  cookieName?: string
-): Promise<Session | null> {
-  const reader = createEdgeSessionReader(secret, cookieName);
-  return reader.getSessionFromRequest(request);
-}
-
-/**
- * Convenience function for checking authentication in edge middleware
- */
-export async function isAuthenticatedEdge(
-  request: Request,
-  secret?: string,
-  cookieName?: string
-): Promise<boolean> {
-  const reader = createEdgeSessionReader(secret, cookieName);
-  return reader.isAuthenticated(request);
 }

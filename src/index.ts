@@ -9,8 +9,8 @@ export * from './next';
 
 // Re-export commonly used classes and functions
 export { SAMLProvider, createSAMLProvider } from './saml';
-export { SessionManager, createNextjsCookieStore, createExpressCookieStore, createWebCookieStore } from './session';
-export { EdgeSessionReader, EdgeCookieParser, createEdgeSessionReader, getSessionFromNextRequest, isAuthenticatedEdge } from './edge-session';
+export { SessionManager, createExpressCookieStore, createWebCookieStore } from './session';
+export { EdgeSessionReader, EdgeCookieParser, createEdgeSessionReader } from './edge-session';
 export { DefaultLogger, ConsoleLogger, SilentLogger } from './logger';
 export { AuthUtils } from './utils';
 export { AdaptNext, createAdaptNext } from './next';

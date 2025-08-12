@@ -4,7 +4,7 @@
  */
 
 import { SAMLProvider } from './saml';
-import { SessionManager, createNextjsCookieStore } from './session';
+import { SessionManager, CookieStore, CookieOptions } from './session';
 import {
   RequiredSamlConfig,
   OptionalSamlConfig,
@@ -20,6 +20,83 @@ import {
   RouteHandler
 } from './types';
 import { DefaultLogger } from './logger';
+
+/**
+ * Create a cookie store adapter for Next.js
+ */
+export function createNextjsCookieStore(cookies: unknown): CookieStore {
+  const cookiesObj = cookies as { get: (name: string) => { name: string; value: string } | undefined; set: (name: string, value: string, options?: CookieOptions) => void };
+
+  return {
+    get: (name: string) => cookiesObj.get(name),
+    set: (name: string, value: string, options?: CookieOptions) => {
+      cookiesObj.set(name, value, options);
+    },
+    delete: (name: string) => {
+      cookiesObj.set(name, '', { maxAge: 0 });
+    },
+  };
+}
+
+/**
+ * Next.js specific edge session functions
+ */
+export async function getSessionFromNextRequest(
+  request: Request,
+  secret?: string,
+  cookieName?: string
+): Promise<Session | null> {
+  const { createEdgeSessionReader } = await import('./edge-session');
+  const reader = createEdgeSessionReader(secret, cookieName);
+  return reader.getSessionFromRequest(request);
+}
+
+/**
+ * Get session from Next.js cookies object
+ */
+export async function getSessionFromNextCookies(
+  cookies: { get?: (name: string) => { value: string } | undefined },
+  secret?: string,
+  cookieName?: string
+): Promise<Session | null> {
+  const sessionSecret = secret ||
+    (typeof process !== 'undefined' ? process.env?.ADAPT_AUTH_SESSION_SECRET : undefined);
+
+  const sessionName = cookieName ||
+    (typeof process !== 'undefined' ? process.env?.ADAPT_AUTH_SESSION_NAME : undefined) ||
+    'adapt-auth-session';
+
+  if (!sessionSecret) {
+    throw new Error('Session secret is required. Provide it as parameter or set ADAPT_AUTH_SESSION_SECRET environment variable.');
+  }
+
+  if (!cookies.get) {
+    return null;
+  }
+
+  const cookie = cookies.get(sessionName);
+  if (!cookie) {
+    return null;
+  }
+
+  // Import and use EdgeSessionReader for decryption
+  const { EdgeSessionReader } = await import('./edge-session');
+  const reader = new EdgeSessionReader(sessionSecret, sessionName);
+  return reader['decryptSession'](cookie.value); // Access private method
+}
+
+/**
+ * Convenience function for checking authentication in Next.js edge middleware
+ */
+export async function isAuthenticatedEdge(
+  request: Request,
+  secret?: string,
+  cookieName?: string
+): Promise<boolean> {
+  const { createEdgeSessionReader } = await import('./edge-session');
+  const reader = createEdgeSessionReader(secret, cookieName);
+  return reader.isAuthenticated(request);
+}
 
 /**
  * Required configuration for AdaptNext (minimal fields developers must provide)
