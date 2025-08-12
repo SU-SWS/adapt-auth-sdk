@@ -1,13 +1,51 @@
 import { type SamlOptions } from '@node-saml/node-saml';
 
 /**
+ * User data structure for session storage
+ */
+export type User = {
+  id: string;
+  email?: string;
+  name?: string;
+  imageUrl?: string;
+  [key: string]: unknown; // Allow additional user properties
+};
+
+/**
+ * Session data structure
+ */
+export type Session = {
+  user: User;
+  meta?: Record<string, unknown>; // developer-defined metadata
+  issuedAt: number;
+  expiresAt: number;
+};
+
+/**
+ * RelayState payload structure
+ */
+export type RelayStatePayload = {
+  nonce: string;
+  issuedAt: number;
+  returnTo?: string;
+};
+
+/**
+ * Structured logger interface
+ */
+export interface Logger {
+  debug(message: string, meta?: Record<string, unknown>): void;
+  info(message: string, meta?: Record<string, unknown>): void;
+  warn(message: string, meta?: Record<string, unknown>): void;
+  error(message: string, meta?: Record<string, unknown>): void;
+}
+
+/**
  * Configuration for SAML authentication in AdaptAuth.
- * This configuration is used to set up the SAML service provider that AdaptAuth will use for authentication.
  */
 export type SamlConfig = SamlOptions & {
   /**
    * The URL to redirect users to for logging in via the service provider.
-   * This URL exists at the service provider and is in the format of `https://<entityId>.stanford.edu/api/sso/login`.
    */
   serviceProviderLoginUrl?: string;
 
@@ -18,46 +56,181 @@ export type SamlConfig = SamlOptions & {
 
   /**
    * Return to path after login.
-   * This is the path to which the user will be redirected after a successful login.
    */
   returnToPath?: string;
 
   /**
-   * Optional relay state parameter.
-   * This parameter can be used to maintain state between the authentication request and the response.
+   * Whether to include returnTo URL in RelayState
    */
-  relayState?: string;
-}
+  includeReturnTo?: boolean;
+
+  /**
+   * Maximum age for RelayState validation in seconds
+   */
+  relayStateMaxAge?: number;
+
+  /**
+   * HMAC secret for RelayState signing
+   */
+  relayStateSecret?: string;
+};
 
 /**
- * Configuration for the session management in AdaptAuth.
+ * Configuration for session management in AdaptAuth.
  */
 export type SessionConfig = {
   /**
    * The name of the session cookie.
-   * This is used to identify the session in the user's browser.
-   *
-   * Example: 'adapt-auth-session'
-   *
-   * @type {string}
    */
   name: string;
+
   /**
    * The secret used to sign the session cookie.
-   * This should be a strong, random string to ensure the security of the session.
-   *
-   * Example: 'supersecretkey'
-   *
-   * @type {string}
    */
   secret: string;
+
   /**
-   * The duration in seconds for which the session is valid.
-   * After this time, the session will expire and the user will need to log in again.
-   *
-   * Example: 3600 (1 hour)
-   *
-   * @type {number}
+   * Cookie configuration options
    */
-  expiresIn: number;
+  cookie?: {
+    httpOnly?: boolean;
+    secure?: boolean;
+    sameSite?: 'lax' | 'strict' | 'none';
+    path?: string;
+    domain?: string;
+    maxAge?: number;
+  };
+
+  /**
+   * Cookie size warning threshold in bytes
+   */
+  cookieSizeThreshold?: number;
 };
+
+/**
+ * Authentication configuration
+ */
+export type AuthConfig = {
+  saml: SamlConfig;
+  session: SessionConfig;
+  logger?: Logger;
+  verbose?: boolean;
+};
+
+/**
+ * Callbacks for customizing authentication behavior
+ */
+export type AuthCallbacks = {
+  /**
+   * Called after successful SAML authentication to map SAML profile to User
+   */
+  mapProfile?: (profile: SAMLProfile) => Promise<User> | User;
+
+  /**
+   * Called when creating/updating session to enrich session data
+   */
+  session?: (params: {
+    session: Session;
+    user: User;
+    req: Request;
+  }) => Promise<Session> | Session;
+
+  /**
+   * Called on authentication events
+   */
+  signIn?: (params: { user: User; profile: SAMLProfile }) => Promise<void> | void;
+  signOut?: (params: { session: Session }) => Promise<void> | void;
+};
+
+/**
+ * Login options
+ */
+export type LoginOptions = {
+  returnTo?: string;
+  [key: string]: unknown;
+};
+
+/**
+ * Authentication options for ACS
+ */
+export type AuthenticateOptions = {
+  req: Request;
+  callbacks?: AuthCallbacks;
+};
+
+/**
+ * Logout options
+ */
+export type LogoutOptions = {
+  slo?: boolean; // Single Logout
+  redirectTo?: string;
+};
+
+/**
+ * SAML Response structure from Stanford
+ */
+export type SAMLResponseAttributes = {
+  'oracle:cloud:identity:domain': string;
+  firstName?: string;
+  lastName?: string;
+  'oracle:cloud:identity:sessionid': string;
+  'oracle:cloud:identity:tenant': string;
+  encodedSUID: string;
+  suid?: string;
+  'oracle:cloud:identity:url': string;
+  userName: string;
+  [key: string]: unknown;
+};
+
+/**
+ * Extended SAML Profile with Stanford-specific attributes
+ */
+export type SAMLProfile = {
+  inResponseTo?: string;
+  issuer?: string;
+  nameID?: string;
+  nameIDFormat?: string;
+  sessionIndex?: string;
+  attributes?: SAMLResponseAttributes;
+  [key: string]: unknown;
+} & SAMLResponseAttributes;
+
+/**
+ * SAML Response result
+ */
+export type SAMLResponse = {
+  profile?: SAMLProfile;
+  loggedOut?: boolean;
+};
+
+/**
+ * Error types
+ */
+export class AuthError extends Error {
+  public code: string;
+  public statusCode: number;
+
+  constructor(message: string, code: string, statusCode = 500) {
+    super(message);
+    this.name = 'AuthError';
+    this.code = code;
+    this.statusCode = statusCode;
+  }
+}
+
+/**
+ * Context passed to route handlers
+ */
+export type AuthContext = {
+  session?: Session;
+  user?: User;
+  isAuthenticated: boolean;
+};
+
+/**
+ * Route handler type
+ */
+export type RouteHandler = (
+  req: Request,
+  context: AuthContext
+) => Promise<Response> | Response;

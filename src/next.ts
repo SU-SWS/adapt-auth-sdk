@@ -1,91 +1,252 @@
 /**
- * This is a convenience class to make it easier to work with the Next.js API.
- * It provides methods to handle common tasks.
+ * Next.js integration for ADAPT Auth SDK
+ * Provides simplified methods for authentication in Next.js applications
  */
 
-import SAML, { type LoginOptions} from './saml';
-import Session from './session';
-import { cookies } from 'next/headers';
-import { type ReadonlyRequestCookies } from 'next/dist/server/web/spec-extension/adapters/request-cookies';
+import { SAMLProvider } from './saml';
+import { SessionManager, createNextjsCookieStore } from './session';
+import {
+  SamlConfig,
+  SessionConfig,
+  User,
+  Session,
+  LoginOptions,
+  AuthCallbacks,
+  Logger,
+  AuthContext,
+  RouteHandler
+} from './types';
+import { DefaultLogger } from './logger';
 
-export type ConfigOptions = {
-  cookieStore: ReadonlyRequestCookies;
-};
+/**
+ * Configuration options for AdaptNext
+ */
+export interface AdaptNextConfig {
+  saml: SamlConfig;
+  session: SessionConfig;
+  logger?: Logger;
+  verbose?: boolean;
+  callbacks?: AuthCallbacks;
+}
 
+/**
+ * AdaptNext class for Next.js integration
+ * Provides simplified methods for authentication in Next.js App Router
+ */
 export class AdaptNext {
+  private samlProvider: SAMLProvider;
+  private sessionManager: SessionManager;
+  private logger: Logger;
+  private callbacks?: AuthCallbacks;
 
-  private session: Session;
+  constructor(config: AdaptNextConfig) {
+    this.logger = config.logger || new DefaultLogger(config.verbose);
+    this.callbacks = config.callbacks;
 
-  constructor({
-    cookieStore,
-  }: ConfigOptions) {
-    this.session = new Session({ setter: cookieStore });
+    this.samlProvider = new SAMLProvider(config.saml, this.logger);
+
+    // For Next.js, we'll create the session manager when needed with the cookies
+    // This is a placeholder - actual session manager will be created in methods
+    this.sessionManager = null as unknown as SessionManager;
   }
 
   /**
-   * The login method is used to initiate the SAML login process.
-   * This method initiates the SAML login process.
-   *
-   * @throws {Error} If called in a browser environment.
-   * @param {LoginOptions} options - Optional parameters for the login process.
-   * @returns {Promise<void>} - Returns a promise that resolves when the login process is complete.
-   * @example
-   * const options = { destination: '/dashboard' };
-   * await adaptNext.login(options);
+   * Create session manager with Next.js cookies
    */
-  public login = (options?: LoginOptions) => {
-    // Check for a browser environment and throw an error if not in a server context
-    if (typeof window !== 'undefined') {
-      throw new Error("AdaptNext.login() should not be called in a browser environment.");
-    }
+  private async createSessionManager() {
+    // Dynamic import to avoid issues with Next.js server components
+    const { cookies } = await import('next/headers');
+    const cookieStore = createNextjsCookieStore(await cookies());
+    return new SessionManager(cookieStore, this.sessionConfig, this.logger);
+  }
 
-    // If in a server context, initiate the SAML login process
-    return SAML.login(options);
+  private get sessionConfig() {
+    // Return the session config from constructor
+    return this.sessionManager?.['config'] || {} as SessionConfig;
   }
 
   /**
-   * The logout method is used to log out the user.
-   * This method destroys the session and initiates the SAML logout process.
-   * It should not be called in a browser environment.
-   *
-   * @throws {Error} If called in a browser environment.
-   * @returns {Promise<void>} - Returns a promise that resolves when the logout process is complete.
-   * @example
-   * await adaptNext.logout();
+   * Initiate SAML login
    */
-  public logout = async () => {
-    // Check for a browser environment and throw an error if not in a server context
+  async login(options: LoginOptions = {}): Promise<Response> {
+    this.logger.debug('Initiating SAML login', { options });
+
+    // Check for browser environment
     if (typeof window !== 'undefined') {
-      throw new Error("AdaptNext.logout() should not be called in a browser environment.");
+      throw new Error('AdaptNext.login() should not be called in a browser environment');
     }
-    return this.session.destroySession();
+
+    return await this.samlProvider.login(options);
   }
 
   /**
-   * The getSession method retrieves the current session data.
-   * This method should not be called in a browser environment.
-   *
-   * @throws {Error} If called in a browser environment.
-   * @returns {Promise<SessionData>} - Returns a promise that resolves to the session data.
-   *
-   * @example
-   * const sessionData = await adaptNext.getSession();
+   * Handle SAML authentication callback (ACS endpoint)
    */
-  public getSession = async () => {
-    // Check for a browser environment and throw an error if not in a server context
+  async authenticate(request: Request): Promise<{
+    user: User;
+    session: Session;
+    returnTo?: string;
+  }> {
+    this.logger.debug('Processing SAML authentication');
+
+    // Check for browser environment
     if (typeof window !== 'undefined') {
-      throw new Error("AdaptNext.getSession() should not be called in a browser environment.");
+      throw new Error('AdaptNext.authenticate() should not be called in a browser environment');
     }
 
-    // If in a server context, return the session data
-    return this.session.getSession();
+    try {
+      // Authenticate with SAML
+      const { user, returnTo } = await this.samlProvider.authenticate({
+        req: request,
+        callbacks: this.callbacks,
+      });
+
+      // Create session
+      const sessionManager = await this.createSessionManager();
+      const session = await sessionManager.createSession(user);
+
+      // Call session callback if provided
+      if (this.callbacks?.session) {
+        await this.callbacks.session({ session, user, req: request });
+      }
+
+      this.logger.info('Authentication successful', {
+        userId: user.id,
+        returnTo,
+      });
+
+      return { user, session, returnTo };
+
+    } catch (error) {
+      this.logger.error('Authentication failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get current session
+   */
+  async getSession(): Promise<Session | null> {
+    // Check for browser environment
+    if (typeof window !== 'undefined') {
+      throw new Error('AdaptNext.getSession() should not be called in a browser environment');
+    }
+
+    try {
+      const sessionManager = await this.createSessionManager();
+      return await sessionManager.getSession();
+    } catch (error) {
+      this.logger.error('Failed to get session', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Get current user
+   */
+  async getUser(): Promise<User | null> {
+    const session = await this.getSession();
+    return session?.user || null;
+  }
+
+  /**
+   * Check if user is authenticated
+   */
+  async isAuthenticated(): Promise<boolean> {
+    const session = await this.getSession();
+    return session !== null && !!session.user;
+  }
+
+  /**
+   * Logout and destroy session
+   */
+  async logout(): Promise<void> {
+    // Check for browser environment
+    if (typeof window !== 'undefined') {
+      throw new Error('AdaptNext.logout() should not be called in a browser environment');
+    }
+
+    try {
+      const session = await this.getSession();
+
+      if (session && this.callbacks?.signOut) {
+        await this.callbacks.signOut({ session });
+      }
+
+      const sessionManager = await this.createSessionManager();
+      await sessionManager.destroySession();
+
+      this.logger.info('User logged out', {
+        userId: session?.user?.id,
+      });
+
+    } catch (error) {
+      this.logger.error('Logout failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Middleware function for protecting routes
+   */
+  auth(handler: RouteHandler) {
+    return async (request: Request): Promise<Response> => {
+      try {
+        const session = await this.getSession();
+        const context: AuthContext = {
+          session: session || undefined,
+          user: session?.user || undefined,
+          isAuthenticated: !!session?.user,
+        };
+
+        return await handler(request, context);
+
+      } catch (error) {
+        this.logger.error('Auth middleware error', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+
+        // Return unauthorized response
+        return new Response('Unauthorized', { status: 401 });
+      }
+    };
+  }
+
+  /**
+   * Create login URL without redirecting
+   */
+  async getLoginUrl(options: LoginOptions = {}): Promise<string> {
+    return await this.samlProvider.getLoginUrl(options);
+  }
+
+  /**
+   * Refresh session (sliding expiration)
+   */
+  async refreshSession(): Promise<Session | null> {
+    try {
+      const sessionManager = await this.createSessionManager();
+      return await sessionManager.refreshSession();
+    } catch (error) {
+      this.logger.error('Failed to refresh session', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return null;
+    }
   }
 }
 
 /**
- * Create an instance of AdaptNext to use in your application.
- * This instance can be used to call methods like login.
+ * Create an AdaptNext instance with configuration
  */
-const cookieInstance: ReadonlyRequestCookies = await cookies();
-const instance = new AdaptNext({ cookieStore: cookieInstance });
-export default instance;
+export function createAdaptNext(config: AdaptNextConfig): AdaptNext {
+  return new AdaptNext(config);
+}
+
+// Export types for convenience
+export { type AuthContext, type RouteHandler };
