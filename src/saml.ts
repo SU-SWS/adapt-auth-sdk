@@ -127,7 +127,7 @@ export class SAMLProvider {
           return_to: returnTo || this.config.returnToPath || '/',
         };
 
-        relayState = AuthUtils.base64UrlEncode(JSON.stringify(payload));
+        relayState = JSON.stringify(payload);
       }
 
       // Build service provider login URL
@@ -164,6 +164,7 @@ export class SAMLProvider {
    */
   async login(options: LoginOptions = {}): Promise<Response> {
     const loginUrl = await this.getLoginUrl(options);
+    console.log('Generated login URL:', loginUrl);
     return Response.redirect(loginUrl, 302);
   }
 
@@ -270,7 +271,7 @@ export class SAMLProvider {
   private async processRelayState(relayState: string): Promise<string | undefined> {
     try {
       // Parse RelayState as simple JSON
-      const payload: RelayStatePayload = JSON.parse(AuthUtils.base64UrlDecode(relayState));
+      const payload: RelayStatePayload = JSON.parse(relayState);
 
       // Sanitize return_to URL
       if (payload.return_to) {
