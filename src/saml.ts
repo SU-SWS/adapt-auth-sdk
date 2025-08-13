@@ -146,10 +146,10 @@ export class SAMLProvider {
       }
 
       // Build service provider login URL
-      const acsUrl = `${this.config.returnToOrigin}${this.config.returnToPath}`;
+      const acsUrl = new URL(this.config.returnToPath, this.config.returnToOrigin).toString();
       const params = new URLSearchParams({
         entity: process.env.SAML_ENTITY_ID || this.config.issuer,
-        return_to: acsUrl,
+        returnTo: acsUrl,
         final_destination: returnTo || this.config.returnToPath || '/',
         ...(relayState && { RelayState: relayState }),
         ...additionalParams,
