@@ -42,8 +42,6 @@ export class SAMLProvider {
 
       // RelayState configuration with defaults
       includeReturnTo: config.includeReturnTo ?? true,
-      relayStateMaxAge: config.relayStateMaxAge ?? 300,
-      relayStateSecret: config.relayStateSecret || process.env.ADAPT_AUTH_RELAY_STATE_SECRET || '',
 
       // SAML protocol settings with secure defaults
       signatureAlgorithm: config.signatureAlgorithm || 'sha256',
@@ -113,13 +111,6 @@ export class SAMLProvider {
         400
       );
     }
-
-    if (this.config.includeReturnTo && !this.config.relayStateSecret) {
-      this.logger.warn('RelayState secret not configured - RelayState will not be signed', {
-        includeReturnTo: this.config.includeReturnTo,
-        hasRelayStateSecret: !!this.config.relayStateSecret
-      });
-    }
   }
 
   /**
@@ -131,18 +122,12 @@ export class SAMLProvider {
 
       // Create RelayState payload if needed
       let relayState: string | undefined;
-      if (this.config.includeReturnTo && (returnTo || this.config.relayStateSecret)) {
+      if (this.config.includeReturnTo && returnTo) {
         const payload: RelayStatePayload = {
-          nonce: AuthUtils.generateNonce(),
-          issuedAt: Math.floor(Date.now() / 1000),
           returnTo: returnTo || this.config.returnToPath || '/',
         };
 
-        if (this.config.relayStateSecret) {
-          relayState = await AuthUtils.createRelayState(payload, this.config.relayStateSecret);
-        } else {
-          relayState = AuthUtils.base64UrlEncode(JSON.stringify(payload));
-        }
+        relayState = AuthUtils.base64UrlEncode(JSON.stringify(payload));
       }
 
       // Build service provider login URL
@@ -284,45 +269,8 @@ export class SAMLProvider {
    */
   private async processRelayState(relayState: string): Promise<string | undefined> {
     try {
-      let payload: RelayStatePayload;
-
-      // The middleware website appends a verification token.
-      // The SAML RelayState becomes `encrypted123|validationToken`.
-      // When validating, split the relaystate by the pipe before decrypting.
-      const relayStateParts = relayState.split('|');
-      const encryptedRelayState = relayStateParts[0];
-
-      // Try to verify signed RelayState first
-      if (this.config.relayStateSecret) {
-        const verifiedPayload = await AuthUtils.verifyRelayState(
-          encryptedRelayState,
-          this.config.relayStateSecret,
-          this.config.relayStateMaxAge
-        );
-
-        if (verifiedPayload) {
-          payload = verifiedPayload;
-        } else {
-          this.logger.warn('Failed to verify RelayState signature, trying unsigned');
-          payload = JSON.parse(AuthUtils.base64UrlDecode(encryptedRelayState));
-        }
-      } else {
-        // Parse unsigned RelayState
-        payload = JSON.parse(AuthUtils.base64UrlDecode(encryptedRelayState));
-      }
-
-      // Validate payload structure
-      if (!payload.nonce || !payload.issuedAt) {
-        this.logger.warn('Invalid RelayState payload structure');
-        return undefined;
-      }
-
-      // Check age even for unsigned RelayState
-      const age = Math.floor(Date.now() / 1000) - payload.issuedAt;
-      if (age > this.config.relayStateMaxAge) {
-        this.logger.warn('RelayState is too old', { age, maxAge: this.config.relayStateMaxAge });
-        return undefined;
-      }
+      // Parse RelayState as simple JSON
+      const payload: RelayStatePayload = JSON.parse(AuthUtils.base64UrlDecode(relayState));
 
       // Sanitize returnTo URL
       if (payload.returnTo) {
@@ -376,13 +324,12 @@ export class SAMLProvider {
    */
   getConfig(): Record<string, unknown> {
     // Return config without sensitive data
-    const { privateKey, decryptionPvk, idpCert, relayStateSecret, ...safeConfig } = this.config;
+    const { privateKey, decryptionPvk, idpCert, ...safeConfig } = this.config;
     return {
       ...safeConfig,
       hasPrivateKey: !!privateKey,
       hasDecryptionKey: !!decryptionPvk,
       hasCert: !!idpCert,
-      hasRelayStateSecret: !!relayStateSecret,
     };
   }
 }

@@ -22,11 +22,12 @@ export type Session = {
 /**
  * RelayState payload structure
  */
-export type RelayStatePayload = {
-  nonce: string;
-  issuedAt: number;
+/**
+ * RelayState payload structure
+ */
+export interface RelayStatePayload {
   returnTo?: string;
-};
+}
 
 /**
  * Structured logger interface
@@ -79,18 +80,6 @@ export interface OptionalSamlConfig {
    * @default true
    */
   includeReturnTo?: boolean;
-
-  /**
-   * Maximum age for RelayState validation in seconds
-   * @default 300 (5 minutes)
-   */
-  relayStateMaxAge?: number;
-
-  /**
-   * HMAC secret for signing RelayState tokens (recommended for security)
-   * @default process.env.ADAPT_AUTH_RELAY_STATE_SECRET
-   */
-  relayStateSecret?: string;
 
   /**
    * Private key for SAML signing (if different from idpCert)
@@ -306,9 +295,7 @@ export interface OptionalAuthConfig {
  *     idpCert: 'your-certificate',
  *     returnToOrigin: 'https://your-app.com',
  *     // Optional: customize service provider URL
- *     serviceProviderLoginUrl: 'https://custom-sso.stanford.edu/login',
- *     // Optional: configure RelayState security
- *     relayStateSecret: 'hmac-secret-for-signing'
+ *     serviceProviderLoginUrl: 'https://custom-sso.stanford.edu/login'
  *   },
  *   session: {
  *     name: 'my-session',

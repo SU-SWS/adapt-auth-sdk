@@ -6,7 +6,7 @@ A framework-agnostic TypeScript authentication library for ADAPT SAML integratio
 
 - **Framework Agnostic**: Works with Next.js, Express.js, and any Web API framework
 - **TypeScript First**: Complete TypeScript implementation with strict typing
-- **Security Focused**: HMAC-signed RelayState, encrypted sessions, CSRF protection
+- **Security Focused**: Encrypted sessions, CSRF protection
 - **Serverless Ready**: Cookie-only sessions, no server-side storage required
 - **Edge Compatible**: Session validation in edge functions for ultra-fast performance
 - **Developer Friendly**: Simple API inspired by Auth.js patterns
@@ -56,8 +56,6 @@ export const auth = createAdaptNext({
     serviceProviderLoginUrl: 'https://custom.stanford.edu/api/sso/login',
     returnToPath: '/custom/callback',
     includeReturnTo: true,
-    relayStateMaxAge: 300, // 5 minutes
-    relayStateSecret: process.env.ADAPT_AUTH_RELAY_STATE_SECRET,
     privateKey: process.env.ADAPT_AUTH_SAML_PRIVATE_KEY,
     decryptionPvk: process.env.ADAPT_AUTH_SAML_DECRYPTION_KEY,
     wantAssertionsSigned: true,
@@ -137,7 +135,6 @@ ADAPT_AUTH_SESSION_SECRET="your-32-character-minimum-secret"
 
 ### Security First
 - SAML 2.0 signature validation
-- HMAC-signed RelayState tokens
 - Encrypted cookie sessions
 - CSRF protection
 

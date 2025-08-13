@@ -1,7 +1,5 @@
-import { RelayStatePayload } from './types';
-
 /**
- * Utility functions for authentication
+ * Utility functions for authentication operations
  */
 export class AuthUtils {
   private static encoder = new TextEncoder();
@@ -48,54 +46,7 @@ export class AuthUtils {
     return await crypto.subtle.verify('HMAC', key, signatureBuffer, this.encoder.encode(data));
   }
 
-  /**
-   * Create signed RelayState
-   */
-  static async createRelayState(
-    payload: RelayStatePayload,
-    secret: string
-  ): Promise<string> {
-    const data = this.base64UrlEncode(JSON.stringify(payload));
-    const signature = await this.createHMAC(data, secret);
-    return `${data}.${signature}`;
-  }
-
-  /**
-   * Verify and parse RelayState
-   */
-  static async verifyRelayState(
-    relayState: string,
-    secret: string,
-    maxAgeSec = 300 // 5 minutes default
-  ): Promise<RelayStatePayload | null> {
-    try {
-      const [data, signature] = relayState.split('.');
-      if (!data || !signature) {
-        return null;
-      }
-
-      // Verify signature
-      const isValid = await this.verifyHMAC(data, signature, secret);
-      if (!isValid) {
-        return null;
-      }
-
-      // Parse payload
-      const payload: RelayStatePayload = JSON.parse(this.base64UrlDecode(data));
-
-      // Check age
-      const now = Math.floor(Date.now() / 1000);
-      if (now - payload.issuedAt > maxAgeSec) {
-        return null;
-      }
-
-      return payload;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
+    /**
    * Sanitize and validate returnTo URL
    */
   static sanitizeReturnTo(returnTo: string, allowedOrigins: string[]): string | null {
