@@ -4,8 +4,27 @@
  * without requiring Node.js dependencies.
  */
 
-import { Session, User, Logger } from './types';
-import { DefaultLogger } from './logger';
+import { Session, User } from './types';
+
+/**
+ * Simple edge-compatible logger for debugging
+ */
+interface EdgeLogger {
+  debug(message: string, meta?: Record<string, unknown>): void;
+}
+
+/**
+ * Minimal logger that works in edge environments
+ */
+class EdgeConsoleLogger implements EdgeLogger {
+  constructor(private verbose: boolean = false) {}
+
+  debug(message: string, meta?: Record<string, unknown>): void {
+    if (this.verbose) {
+      console.log(`[DEBUG] ${message}`, meta || {});
+    }
+  }
+}
 
 /**
  * Edge-compatible cookie interface
@@ -53,16 +72,16 @@ export class EdgeCookieParser {
 export class EdgeSessionReader {
   private readonly secret: string;
   private readonly cookieName: string;
-  private readonly logger: Logger;
+  private readonly logger: EdgeLogger;
 
   constructor(
     secret: string,
     cookieName: string = 'adapt-auth-session',
-    logger?: Logger
+    logger?: EdgeLogger
   ) {
     this.secret = secret;
     this.cookieName = cookieName;
-    this.logger = logger || new DefaultLogger();
+    this.logger = logger || new EdgeConsoleLogger();
 
     if (this.secret.length < 32) {
       throw new Error('Session secret must be at least 32 characters long');
@@ -296,19 +315,37 @@ export class EdgeSessionReader {
 }
 
 /**
+ * Safely get environment variable in edge environments
+ */
+function getEdgeEnv(key: string): string | undefined {
+  try {
+    // Try different ways to access environment variables in edge environments
+    if (typeof process !== 'undefined' && process.env) {
+      return process.env[key];
+    }
+    // In some edge environments like Deno
+    const globalEnv = globalThis as { Deno?: { env: { get: (key: string) => string | undefined } } };
+    if (globalEnv.Deno?.env) {
+      return globalEnv.Deno.env.get(key);
+    }
+    // In Cloudflare Workers, env variables are passed to fetch handler
+    // This will be undefined here, but that's handled by the caller
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Factory function to create edge session reader with environment variables
  */
 export function createEdgeSessionReader(
   secret?: string,
   cookieName?: string,
-  logger?: Logger
+  logger?: EdgeLogger
 ): EdgeSessionReader {
-  const sessionSecret = secret ||
-    (typeof process !== 'undefined' ? process.env?.ADAPT_AUTH_SESSION_SECRET : undefined);
-
-  const sessionName = cookieName ||
-    (typeof process !== 'undefined' ? process.env?.ADAPT_AUTH_SESSION_NAME : undefined) ||
-    'adapt-auth-session';
+  const sessionSecret = secret || getEdgeEnv('ADAPT_AUTH_SESSION_SECRET');
+  const sessionName = cookieName || getEdgeEnv('ADAPT_AUTH_SESSION_NAME') || 'adapt-auth-session';
 
   if (!sessionSecret) {
     throw new Error('Session secret is required. Provide it as parameter or set ADAPT_AUTH_SESSION_SECRET environment variable.');
@@ -327,4 +364,72 @@ export async function getUserIdFromRequest(
 ): Promise<string | null> {
   const reader = createEdgeSessionReader(secret, cookieName);
   return reader.getUserId(request);
+}
+
+/**
+ * Ultra-lightweight user ID extraction for edge functions
+ * This is a faster alternative that tries to extract user ID without full session decryption
+ * Falls back to full decryption if quick extraction fails
+ */
+export async function getQuickUserId(
+  request: Request,
+  secret?: string,
+  cookieName: string = 'adapt-auth-session'
+): Promise<string | null> {
+  try {
+    const cookieHeader = request.headers.get('cookie');
+    if (!cookieHeader) return null;
+
+    // Parse cookies
+    const parser = new EdgeCookieParser(cookieHeader);
+    const cookieValue = parser.get(cookieName);
+    if (!cookieValue) return null;
+
+    // Try quick extraction first (if session is not encrypted or uses a simple format)
+    const quickResult = await tryQuickUserIdExtraction(cookieValue);
+    if (quickResult) return quickResult;
+
+    // Fall back to full session decryption
+    if (!secret) {
+      secret = getEdgeEnv('ADAPT_AUTH_SESSION_SECRET');
+      if (!secret) return null;
+    }
+
+    const reader = new EdgeSessionReader(secret, cookieName, new EdgeConsoleLogger(false));
+    return reader.getUserId(request);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Attempt to quickly extract user ID without full decryption
+ * This is a best-effort optimization for common session formats
+ */
+async function tryQuickUserIdExtraction(cookieValue: string): Promise<string | null> {
+  try {
+    // If the cookie value looks like JSON (for development/testing)
+    if (cookieValue.startsWith('{') && cookieValue.endsWith('}')) {
+      const session = JSON.parse(cookieValue);
+      return session?.user?.id || null;
+    }
+
+    // If it's base64 encoded JSON
+    if (!cookieValue.includes('.')) {
+      try {
+        const decoded = atob(cookieValue);
+        if (decoded.startsWith('{')) {
+          const session = JSON.parse(decoded);
+          return session?.user?.id || null;
+        }
+      } catch {
+        // Not base64 or not JSON, continue to full decryption
+      }
+    }
+
+    // For iron-session format, we need full decryption
+    return null;
+  } catch {
+    return null;
+  }
 }

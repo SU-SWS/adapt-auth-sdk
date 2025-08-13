@@ -125,6 +125,39 @@ export const config = {
 };
 ```
 
+### Ultra-Fast User ID Extraction (Performance Optimized)
+
+```typescript
+// netlify/edge-functions/quick-analytics.ts
+import { getQuickUserId } from 'adapt-auth-sdk/edge-session';
+
+export default async function handler(request: Request, context: any) {
+  // Ultra-fast user ID extraction optimized for edge performance
+  // Tries quick extraction first, falls back to full decryption if needed
+  const userId = await getQuickUserId(request);
+
+  if (userId) {
+    // Log user activity with minimal latency
+    console.log(`User ${userId} accessed ${request.url}`);
+
+    // Add to analytics queue (non-blocking)
+    context.waitUntil(
+      fetch('https://analytics.example.com/track', {
+        method: 'POST',
+        body: JSON.stringify({ userId, url: request.url, timestamp: Date.now() })
+      })
+    );
+  }
+
+  // Continue to next function/origin with minimal delay
+  return await context.next();
+}
+
+export const config = {
+  path: "/*",
+};
+```
+
 ## Performance Benefits
 
 ### Netlify Edge vs Traditional Server
