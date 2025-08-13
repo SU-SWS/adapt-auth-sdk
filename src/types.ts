@@ -26,7 +26,7 @@ export type Session = {
  * RelayState payload structure
  */
 export interface RelayStatePayload {
-  returnTo?: string;
+  return_to?: string;
 }
 
 /**

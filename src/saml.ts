@@ -124,7 +124,7 @@ export class SAMLProvider {
       let relayState: string | undefined;
       if (this.config.includeReturnTo && returnTo) {
         const payload: RelayStatePayload = {
-          returnTo: returnTo || this.config.returnToPath || '/',
+          return_to: returnTo || this.config.returnToPath || '/',
         };
 
         relayState = AuthUtils.base64UrlEncode(JSON.stringify(payload));
@@ -272,13 +272,13 @@ export class SAMLProvider {
       // Parse RelayState as simple JSON
       const payload: RelayStatePayload = JSON.parse(AuthUtils.base64UrlDecode(relayState));
 
-      // Sanitize returnTo URL
-      if (payload.returnTo) {
+      // Sanitize return_to URL
+      if (payload.return_to) {
         const allowedOrigins = [this.config.returnToOrigin];
-        const sanitized = AuthUtils.sanitizeReturnTo(payload.returnTo, allowedOrigins);
+        const sanitized = AuthUtils.sanitizeReturnTo(payload.return_to, allowedOrigins);
 
         if (!sanitized) {
-          this.logger.warn('ReturnTo URL failed sanitization', { returnTo: payload.returnTo });
+          this.logger.warn('Return_to URL failed sanitization', { return_to: payload.return_to });
           return '/';
         }
 
