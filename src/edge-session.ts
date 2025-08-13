@@ -112,6 +112,14 @@ export class EdgeSessionReader {
   }
 
   /**
+   * Get user ID from session
+   */
+  async getUserId(request: Request): Promise<string | null> {
+    const session = await this.getSessionFromRequest(request);
+    return session?.user?.id || null;
+  }
+
+  /**
    * Check if user has specific role/permission
    */
   async hasRole(request: Request, role: string): Promise<boolean> {
@@ -307,4 +315,16 @@ export function createEdgeSessionReader(
   }
 
   return new EdgeSessionReader(sessionSecret, sessionName, logger);
+}
+
+/**
+ * Convenience function to get user ID from request in edge functions
+ */
+export async function getUserIdFromRequest(
+  request: Request,
+  secret?: string,
+  cookieName?: string
+): Promise<string | null> {
+  const reader = createEdgeSessionReader(secret, cookieName);
+  return reader.getUserId(request);
 }

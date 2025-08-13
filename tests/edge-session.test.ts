@@ -1,4 +1,4 @@
-import { EdgeSessionReader, EdgeCookieParser, createEdgeSessionReader } from '../src/edge-session';
+import { EdgeSessionReader, EdgeCookieParser, createEdgeSessionReader, getUserIdFromRequest } from '../src/edge-session';
 import { Session } from '../src/types';
 
 describe('EdgeSessionReader', () => {
@@ -76,6 +76,14 @@ describe('EdgeSessionReader', () => {
       const request = new Request('https://example.com');
       const user = await sessionReader.getUser(request);
       expect(user).toBeNull();
+    });
+  });
+
+  describe('getUserId', () => {
+    it('should return null for unauthenticated request', async () => {
+      const request = new Request('https://example.com');
+      const userId = await sessionReader.getUserId(request);
+      expect(userId).toBeNull();
     });
   });
 
@@ -170,6 +178,35 @@ describe('createEdgeSessionReader', () => {
     expect(() => {
       createEdgeSessionReader();
     }).toThrow('Session secret is required');
+  });
+});
+
+describe('getUserIdFromRequest', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it('should return null for request without session', async () => {
+    process.env.ADAPT_AUTH_SESSION_SECRET = 'test-secret-32-characters-long!!';
+    const request = new Request('https://example.com');
+
+    const userId = await getUserIdFromRequest(request);
+
+    expect(userId).toBeNull();
+  });
+
+  it('should work with provided secret', async () => {
+    const request = new Request('https://example.com');
+
+    const userId = await getUserIdFromRequest(request, 'test-secret-32-characters-long!!');
+
+    expect(userId).toBeNull(); // No valid session in request
   });
 });
 

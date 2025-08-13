@@ -96,6 +96,35 @@ export const config = {
 };
 ```
 
+### Get User ID for Logging or Analytics
+
+```typescript
+// netlify/edge-functions/analytics.ts
+import { getUserIdFromRequest } from 'adapt-auth-sdk/edge-session';
+
+export default async function handler(request: Request, context: any) {
+  // Get just the user ID for logging/analytics
+  const userId = await getUserIdFromRequest(request);
+
+  if (userId) {
+    // Log user activity
+    console.log(`User ${userId} accessed ${request.url}`);
+
+    // Add user ID to response headers for downstream services
+    const response = await context.next();
+    response.headers.set('X-User-ID', userId);
+    return response;
+  }
+
+  // Continue without user tracking for anonymous users
+  return await context.next();
+}
+
+export const config = {
+  path: "/*",
+};
+```
+
 ## Performance Benefits
 
 ### Netlify Edge vs Traditional Server

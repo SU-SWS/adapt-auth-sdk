@@ -9,7 +9,6 @@ A framework-agnostic TypeScript authentication library for ADAPT SAML integratio
 - **Security Focused**: HMAC-signed RelayState, encrypted sessions, CSRF protection
 - **Serverless Ready**: Cookie-only sessions, no server-side storage required
 - **Edge Compatible**: Session validation in edge functions for ultra-fast performance
-- **Stanford WebAuth**: Native Stanford SAML integration
 - **Developer Friendly**: Simple API inspired by Auth.js patterns
 
 ## Quick Start
