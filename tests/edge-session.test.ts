@@ -1,4 +1,4 @@
-import { EdgeSessionReader, EdgeCookieParser, createEdgeSessionReader, getUserIdFromRequest, getQuickUserId } from '../src/edge-session';
+import { EdgeSessionReader, EdgeCookieParser, createEdgeSessionReader, getUserIdFromRequest, getUserIdFromCookie } from '../src/edge-session';
 import { Session } from '../src/types';
 
 describe('EdgeSessionReader', () => {
@@ -84,14 +84,6 @@ describe('EdgeSessionReader', () => {
       const request = new Request('https://example.com');
       const userId = await sessionReader.getUserId(request);
       expect(userId).toBeNull();
-    });
-  });
-
-  describe('hasRole', () => {
-    it('should return false for unauthenticated request', async () => {
-      const request = new Request('https://example.com');
-      const hasRole = await sessionReader.hasRole(request, 'admin');
-      expect(hasRole).toBe(false);
     });
   });
 });
@@ -210,71 +202,6 @@ describe('getUserIdFromRequest', () => {
   });
 });
 
-describe('getQuickUserId', () => {
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    process.env = { ...originalEnv };
-  });
-
-  afterEach(() => {
-    process.env = originalEnv;
-  });
-
-  it('should return null for request without session', async () => {
-    const request = new Request('https://example.com');
-
-    const userId = await getQuickUserId(request, 'test-secret-32-characters-long!!');
-
-    expect(userId).toBeNull();
-  });
-
-  it('should handle plain JSON session cookies (development)', async () => {
-    const sessionData = JSON.stringify({
-      user: { id: 'user123', name: 'Test User' },
-      issuedAt: Date.now()
-    });
-
-    const request = new Request('https://example.com', {
-      headers: {
-        'cookie': `adapt-auth-session=${encodeURIComponent(sessionData)}`
-      }
-    });
-
-    const userId = await getQuickUserId(request);
-    expect(userId).toBe('user123');
-  });
-
-  it('should handle base64 encoded JSON sessions', async () => {
-    const sessionData = JSON.stringify({
-      user: { id: 'user456', email: 'test@example.com' },
-      issuedAt: Date.now()
-    });
-    const base64Session = btoa(sessionData);
-
-    const request = new Request('https://example.com', {
-      headers: {
-        'cookie': `adapt-auth-session=${base64Session}`
-      }
-    });
-
-    const userId = await getQuickUserId(request);
-    expect(userId).toBe('user456');
-  });
-
-  it('should fall back to full decryption for iron-session format', async () => {
-    const request = new Request('https://example.com', {
-      headers: {
-        'cookie': 'adapt-auth-session=encrypted.data.format'
-      }
-    });
-
-    // Should attempt full decryption and return null for invalid format
-    const userId = await getQuickUserId(request, 'test-secret-32-characters-long!!');
-    expect(userId).toBeNull();
-  });
-});
-
 describe('Edge Session Integration', () => {
   it('should validate session structure', async () => {
     // Mock a valid session structure
@@ -319,5 +246,22 @@ describe('Edge Session Integration', () => {
 
     const isValid = sessionCookie.expiresAt === 0 || Date.now() < sessionCookie.expiresAt;
     expect(isValid).toBe(true);
+  });
+});
+
+describe('getUserIdFromCookie', () => {
+  it('should fail plain JSON cookies', async () => {
+    const sessionData = JSON.stringify({
+      user: { id: 'user789', name: 'Test User' },
+      issuedAt: Date.now()
+    });
+
+    const userId = await getUserIdFromCookie(sessionData, 'test-secret-32-characters-long!!');
+    expect(userId).toBeNull();
+  });
+
+  it('should return null for invalid cookie data', async () => {
+    const userId = await getUserIdFromCookie('invalid-data', 'test-secret-32-characters-long!!');
+    expect(userId).toBeNull();
   });
 });

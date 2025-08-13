@@ -450,3 +450,55 @@ export type RouteHandler = (
   req: Request,
   context: AuthContext
 ) => Promise<Response> | Response;
+
+/**
+ * Required configuration for AdaptNext (minimal fields developers must provide)
+ */
+export interface RequiredAdaptNextConfig {
+  /**
+   * SAML configuration - only required fields need to be provided
+   */
+  saml: RequiredSamlConfig;
+
+  /**
+   * Session configuration - only required fields need to be provided
+   */
+  session: RequiredSessionConfig;
+}
+
+/**
+ * Optional configuration for AdaptNext with sensible defaults
+ */
+export interface OptionalAdaptNextConfig {
+  /**
+   * Optional SAML configuration (will use sensible defaults)
+   */
+  saml?: OptionalSamlConfig;
+
+  /**
+   * Optional session configuration (will use sensible defaults)
+   */
+  session?: OptionalSessionConfig;
+
+  /**
+   * Custom logger implementation
+   * @default DefaultLogger
+   */
+  logger?: Logger;
+
+  /**
+   * Enable verbose logging for debugging
+   * @default false
+   */
+  verbose?: boolean;
+
+  /**
+   * Authentication event callbacks
+   */
+  callbacks?: AuthCallbacks;
+}
+
+/**
+ * Complete configuration for AdaptNext (combines required and optional)
+ */
+export type AdaptNextConfig = RequiredAdaptNextConfig & OptionalAdaptNextConfig;

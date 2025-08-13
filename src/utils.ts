@@ -143,23 +143,6 @@ export class AuthUtils {
   }
 
   /**
-   * Generate a secure cookie name with __Host- prefix when appropriate
-   */
-  static generateCookieName(baseName: string, isSecure: boolean, domain?: string): string {
-    // Use __Host- prefix for secure cookies without domain
-    if (isSecure && !domain) {
-      return `__Host-${baseName}`;
-    }
-
-    // Use __Secure- prefix for secure cookies with domain
-    if (isSecure && domain) {
-      return `__Secure-${baseName}`;
-    }
-
-    return baseName;
-  }
-
-  /**
    * Base64 URL encode
    */
   static base64UrlEncode(data: string): string {

@@ -86,19 +86,6 @@ export async function getSessionFromNextCookies(
 }
 
 /**
- * Convenience function for checking authentication in Next.js edge middleware
- */
-export async function isAuthenticatedEdge(
-  request: Request,
-  secret?: string,
-  cookieName?: string
-): Promise<boolean> {
-  const { createEdgeSessionReader } = await import('./edge-session');
-  const reader = createEdgeSessionReader(secret, cookieName);
-  return reader.isAuthenticated(request);
-}
-
-/**
  * Required configuration for AdaptNext (minimal fields developers must provide)
  */
 export interface RequiredAdaptNextConfig {

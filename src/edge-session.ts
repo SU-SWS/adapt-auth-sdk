@@ -5,6 +5,7 @@
  */
 
 import { Session, User } from './types';
+import { unsealData } from 'iron-session';
 
 /**
  * Simple edge-compatible logger for debugging
@@ -139,25 +140,6 @@ export class EdgeSessionReader {
   }
 
   /**
-   * Check if user has specific role/permission
-   */
-  async hasRole(request: Request, role: string): Promise<boolean> {
-    const session = await this.getSessionFromRequest(request);
-    if (!session?.meta) return false;
-
-    // Check in various possible role formats
-    const roles = session.meta.roles as string[] | undefined;
-    const role_list = session.meta.role_list as string[] | undefined;
-    const permissions = session.meta.permissions as string[] | undefined;
-
-    return Boolean(
-      roles?.includes(role) ||
-      role_list?.includes(role) ||
-      permissions?.includes(role)
-    );
-  }
-
-  /**
    * Validate session data
    */
   private isValidSession(session: Session | null): boolean {
@@ -174,37 +156,14 @@ export class EdgeSessionReader {
   }
 
   /**
-   * Decrypt iron-session cookie value
-   * This implements a simplified version of iron-session decryption
-   * compatible with edge environments
+   * Decrypt iron-session cookie value using iron-session's unsealData
    */
   private async decryptSession(cookieValue: string): Promise<Session | null> {
     try {
-      // Iron session format: sealed.signature
-      const parts = cookieValue.split('.');
-      if (parts.length !== 2) {
-        this.logger.debug('Invalid cookie format');
-        return null;
-      }
-
-      const [sealed, signature] = parts;
-
-      // Verify signature using HMAC
-      const isValid = await this.verifySignature(sealed, signature);
-      if (!isValid) {
-        this.logger.debug('Invalid cookie signature');
-        return null;
-      }
-
-      // Decrypt the sealed data
-      const decrypted = await this.unseal(sealed);
-      if (!decrypted) {
-        this.logger.debug('Failed to decrypt session data');
-        return null;
-      }
-
-      // Parse session data
-      const sessionData = JSON.parse(decrypted) as Session;
+      // Use iron-session's unsealData function directly
+      const sessionData = await unsealData<Session>(cookieValue, {
+        password: this.secret,
+      });
 
       // Validate session
       if (!this.isValidSession(sessionData)) {
@@ -218,99 +177,6 @@ export class EdgeSessionReader {
       });
       return null;
     }
-  }
-
-  /**
-   * Verify cookie signature using HMAC-SHA256
-   */
-  private async verifySignature(data: string, signature: string): Promise<boolean> {
-    try {
-      const encoder = new TextEncoder();
-      const key = await crypto.subtle.importKey(
-        'raw',
-        encoder.encode(this.secret),
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['verify']
-      );
-
-      const signatureBuffer = this.base64UrlToArrayBuffer(signature);
-      return await crypto.subtle.verify('HMAC', key, signatureBuffer, encoder.encode(data));
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Unseal (decrypt) the data using AES-GCM
-   * Simplified version compatible with iron-session format
-   */
-  private async unseal(sealed: string): Promise<string | null> {
-    try {
-      const sealedData = this.base64UrlToArrayBuffer(sealed);
-
-      // Extract IV (first 12 bytes) and encrypted data (rest)
-      const iv = sealedData.slice(0, 12);
-      const encrypted = sealedData.slice(12);
-
-      // Derive key from secret
-      const key = await this.deriveKey(this.secret);
-
-      // Decrypt using AES-GCM
-      const decrypted = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv },
-        key,
-        encrypted
-      );
-
-      return new TextDecoder().decode(decrypted);
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Derive encryption key from secret
-   */
-  private async deriveKey(secret: string): Promise<CryptoKey> {
-    const encoder = new TextEncoder();
-    const baseKey = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(secret),
-      'PBKDF2',
-      false,
-      ['deriveKey']
-    );
-
-    return crypto.subtle.deriveKey(
-      {
-        name: 'PBKDF2',
-        salt: encoder.encode('iron-session-salt'), // Iron session uses a fixed salt
-        iterations: 1000,
-        hash: 'SHA-256'
-      },
-      baseKey,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['decrypt']
-    );
-  }
-
-  /**
-   * Convert Base64 URL to ArrayBuffer
-   */
-  private base64UrlToArrayBuffer(base64Url: string): ArrayBuffer {
-    // Add padding if needed
-    const padded = base64Url + '==='.slice(0, (4 - base64Url.length % 4) % 4);
-    const base64 = padded.replace(/-/g, '+').replace(/_/g, '/');
-
-    // Use native atob for edge function compatibility
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes.buffer;
   }
 }
 
@@ -367,68 +233,16 @@ export async function getUserIdFromRequest(
 }
 
 /**
- * Ultra-lightweight user ID extraction for edge functions
- * This is a faster alternative that tries to extract user ID without full session decryption
- * Falls back to full decryption if quick extraction fails
+ * Lightweight user ID extraction that reuses iron-session
  */
-export async function getQuickUserId(
-  request: Request,
-  secret?: string,
-  cookieName: string = 'adapt-auth-session'
+export async function getUserIdFromCookie(
+  cookieValue: string,
+  secret: string
 ): Promise<string | null> {
   try {
-    const cookieHeader = request.headers.get('cookie');
-    if (!cookieHeader) return null;
-
-    // Parse cookies
-    const parser = new EdgeCookieParser(cookieHeader);
-    const cookieValue = parser.get(cookieName);
-    if (!cookieValue) return null;
-
-    // Try quick extraction first (if session is not encrypted or uses a simple format)
-    const quickResult = await tryQuickUserIdExtraction(cookieValue);
-    if (quickResult) return quickResult;
-
-    // Fall back to full session decryption
-    if (!secret) {
-      secret = getEdgeEnv('ADAPT_AUTH_SESSION_SECRET');
-      if (!secret) return null;
-    }
-
-    const reader = new EdgeSessionReader(secret, cookieName, new EdgeConsoleLogger(false));
-    return reader.getUserId(request);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Attempt to quickly extract user ID without full decryption
- * This is a best-effort optimization for common session formats
- */
-async function tryQuickUserIdExtraction(cookieValue: string): Promise<string | null> {
-  try {
-    // If the cookie value looks like JSON (for development/testing)
-    if (cookieValue.startsWith('{') && cookieValue.endsWith('}')) {
-      const session = JSON.parse(cookieValue);
-      return session?.user?.id || null;
-    }
-
-    // If it's base64 encoded JSON
-    if (!cookieValue.includes('.')) {
-      try {
-        const decoded = atob(cookieValue);
-        if (decoded.startsWith('{')) {
-          const session = JSON.parse(decoded);
-          return session?.user?.id || null;
-        }
-      } catch {
-        // Not base64 or not JSON, continue to full decryption
-      }
-    }
-
-    // For iron-session format, we need full decryption
-    return null;
+    // Use iron-session for full decryption
+    const sessionData = await unsealData<Session>(cookieValue, { password: secret });
+    return sessionData?.user?.id || null;
   } catch {
     return null;
   }

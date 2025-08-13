@@ -227,7 +227,7 @@ Create `netlify.toml` in your project root:
 ✅ **Safe Operations**:
 - Reading and decrypting session cookies
 - Validating session expiration
-- Checking user roles/permissions from session
+- Extracting user information from session
 - CSRF token validation
 - Redirecting to login
 
