@@ -285,10 +285,16 @@ export class SAMLProvider {
     try {
       let payload: RelayStatePayload;
 
+      // The middleware website appends a verification token.
+      // The SAML RelayState becomes `encrypted123|validationToken`.
+      // When validating, split the relaystate by the pipe before decrypting.
+      const relayStateParts = relayState.split('|');
+      const encryptedRelayState = relayStateParts[0];
+
       // Try to verify signed RelayState first
       if (this.config.relayStateSecret) {
         const verifiedPayload = await AuthUtils.verifyRelayState(
-          relayState,
+          encryptedRelayState,
           this.config.relayStateSecret,
           this.config.relayStateMaxAge
         );
@@ -297,11 +303,11 @@ export class SAMLProvider {
           payload = verifiedPayload;
         } else {
           this.logger.warn('Failed to verify RelayState signature, trying unsigned');
-          payload = JSON.parse(AuthUtils.base64UrlDecode(relayState));
+          payload = JSON.parse(AuthUtils.base64UrlDecode(encryptedRelayState));
         }
       } else {
         // Parse unsigned RelayState
-        payload = JSON.parse(AuthUtils.base64UrlDecode(relayState));
+        payload = JSON.parse(AuthUtils.base64UrlDecode(encryptedRelayState));
       }
 
       // Validate payload structure
