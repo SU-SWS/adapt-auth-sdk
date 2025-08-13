@@ -53,7 +53,10 @@ export const auth = createAdaptNext({
 import { auth } from '@/lib/auth';
 
 export async function GET(request: Request) {
-  return auth.login(request);
+  const url = new URL(request.url);
+  const returnTo = url.searchParams.get('returnTo') || '/';
+
+  return auth.login({ returnTo });
 }
 ```
 

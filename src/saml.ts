@@ -149,7 +149,7 @@ export class SAMLProvider {
       const acsUrl = new URL(this.config.returnToPath, this.config.returnToOrigin).toString();
       const params = new URLSearchParams({
         entity: process.env.SAML_ENTITY_ID || this.config.issuer,
-        returnTo: acsUrl,
+        return_to: acsUrl,
         final_destination: returnTo || this.config.returnToPath || '/',
         ...(relayState && { RelayState: relayState }),
         ...additionalParams,
@@ -159,7 +159,8 @@ export class SAMLProvider {
 
       this.logger.debug('Generated login URL', {
         hasRelayState: !!relayState,
-        returnTo: returnTo || this.config.returnToPath,
+        return_to: acsUrl,
+        final_destination: returnTo || this.config.returnToPath || '/',
         loginUrl: loginUrl.split('?')[0], // Log URL without parameters for security
       });
 

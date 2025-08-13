@@ -251,10 +251,15 @@ Create `netlify.toml` in your project root:
 Keep your existing Node.js authentication routes unchanged:
 
 ```typescript
+```typescript
 // pages/api/auth/login.ts or app/api/auth/login/route.ts
 export async function GET(request: Request) {
-  return auth.login(request); // Full SAML handling
+  const url = new URL(request.url);
+  const returnTo = url.searchParams.get('returnTo') || '/';
+
+  return auth.login({ returnTo }); // Full SAML handling
 }
+```
 
 // pages/api/auth/acs.ts or app/api/auth/acs/route.ts
 export async function POST(request: Request) {
