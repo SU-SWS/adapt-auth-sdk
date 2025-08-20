@@ -161,6 +161,30 @@ if (session) {
 }
 ```
 
+### Updating Session Data
+
+```typescript
+// Add custom metadata to session
+await auth.updateSession({
+  meta: {
+    theme: 'dark',
+    language: 'en',
+    lastVisited: '/dashboard',
+    preferences: { notifications: true }
+  }
+});
+
+// Update user information in session
+const currentSession = await auth.getSession();
+await auth.updateSession({
+  user: {
+    ...currentSession?.user,
+    displayName: 'John Doe',
+    avatar: '/images/avatar.jpg'
+  }
+});
+```
+
 ### Client-Side Authentication Check
 
 ```typescript

@@ -235,6 +235,51 @@ export async function POST(request: Request) {
 }
 ```
 
+##### updateSession(updates: Partial<Session>): Promise<Session | null>
+
+Updates existing session with new data. Convenience function for adding custom metadata or updating user information in the session cookie.
+
+**Parameters:**
+- `updates: Partial<Session>` - Partial session data to merge with existing session
+
+**Returns:**
+- `Session | null` - Updated session or null if no existing session
+
+**Throws:**
+- `Error` - If called in browser environment (server-side only)
+
+**Example:**
+```typescript
+// Add custom metadata to session
+await auth.updateSession({
+  meta: {
+    theme: 'dark',
+    language: 'en',
+    lastVisited: '/dashboard',
+    preferences: { notifications: true }
+  }
+});
+
+// Update user information
+const currentSession = await auth.getSession();
+await auth.updateSession({
+  user: {
+    ...currentSession?.user,
+    displayName: 'John Doe',
+    avatar: '/images/avatar.jpg'
+  }
+});
+
+// Add metadata after user action
+await auth.updateSession({
+  meta: {
+    ...currentSession?.meta,
+    lastActivity: new Date().toISOString(),
+    featuresUsed: ['dashboard', 'profile']
+  }
+});
+```
+
 ---
 
 ## Cookie Store Implementations

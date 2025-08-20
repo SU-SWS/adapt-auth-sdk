@@ -366,6 +366,71 @@ export class AdaptNext {
       return null;
     }
   }
+
+  /**
+   * Update session with additional metadata
+   * Convenience function to add custom data to the session cookie
+   *
+   * @param updates - Partial session data to update
+   * @returns Updated session or null if no session exists
+   *
+   * @example
+   * ```typescript
+   * // Add user preferences to session
+   * await auth.updateSession({
+   *   meta: {
+   *     theme: 'dark',
+   *     language: 'en',
+   *     lastVisited: '/dashboard'
+   *   }
+   * });
+   *
+   * // Add custom user data
+   * await auth.updateSession({
+   *   user: {
+   *     ...currentUser,
+   *     displayName: 'John Doe',
+   *     avatar: '/images/avatar.jpg'
+   *   }
+   * });
+   * ```
+   */
+  async updateSession(updates: Partial<Session>): Promise<Session | null> {
+    // Check for browser environment
+    if (typeof window !== 'undefined') {
+      throw new Error('AdaptNext.updateSession() should not be called in a browser environment');
+    }
+
+    try {
+      const sessionManager = await this.createSessionManager();
+      const updatedSession = await sessionManager.updateSession(updates);
+
+      if (updatedSession) {
+        this.logger.debug('Session updated', {
+          userId: updatedSession.user?.id,
+          hasMetadata: !!updatedSession.meta
+        });
+
+        // Call session callback if provided
+        if (this.callbacks?.session) {
+          // Create a minimal request-like object for session callback
+          const dummyRequest = new Request('http://localhost');
+          await this.callbacks.session({
+            session: updatedSession,
+            user: updatedSession.user,
+            req: dummyRequest
+          });
+        }
+      }
+
+      return updatedSession;
+    } catch (error) {
+      this.logger.error('Failed to update session', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return null;
+    }
+  }
 }
 
 /**
