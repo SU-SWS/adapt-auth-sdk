@@ -34,7 +34,7 @@ export const auth = createAdaptNext({
   },
   session: {
     // Required fields only - sensible defaults provided for everything else
-    name: 'adapt-auth-session',
+    name: 'adapt-auth',  // Main cookie will be 'adapt-auth', JS cookie will be 'adapt-auth-session'
     secret: process.env.ADAPT_AUTH_SESSION_SECRET!,
   },
 });
@@ -67,7 +67,7 @@ export const auth = createAdaptNext({
   },
   session: {
     // Required
-    name: 'adapt-auth-session',
+    name: 'adapt-auth',  // Creates 'adapt-auth' (main) and 'adapt-auth-session' (JS) cookies
     secret: process.env.ADAPT_AUTH_SESSION_SECRET!,
 
     // Optional - customize as needed

@@ -95,9 +95,7 @@ export class SessionManager {
       this.logger.error('Failed to get session', { error: error instanceof Error ? error.message : 'Unknown error' });
       return null;
     }
-  }
-
-  /**
+  }  /**
    * Create a new session
    */
   async createSession(user: User, meta?: Record<string, unknown>): Promise<Session> {
@@ -110,6 +108,9 @@ export class SessionManager {
     };
 
     try {
+      const mainCookieName = this.config.name;
+      const jsCookieName = `${this.config.name}-session`;
+
       const ironStore = {
         get: this.cookieStore.get,
         set: this.cookieStore.set,
@@ -118,7 +119,7 @@ export class SessionManager {
       const session = await getIronSession<Session>(
         ironStore as never,
         {
-          cookieName: this.config.name,
+          cookieName: mainCookieName,
           password: this.config.secret,
           cookieOptions: this.config.cookie,
         }
@@ -128,13 +129,25 @@ export class SessionManager {
       Object.assign(session, sessionData);
       await session.save();
 
+      // Create JavaScript-accessible session boolean cookie
+      this.cookieStore.set(jsCookieName, 'true', {
+        httpOnly: false, // JavaScript accessible
+        secure: this.config.cookie.secure,
+        sameSite: this.config.cookie.sameSite,
+        path: this.config.cookie.path,
+        domain: this.config.cookie.domain,
+        maxAge: this.config.cookie.maxAge,
+      });
+
       // Check cookie size
-      const cookieValue = this.cookieStore.get(this.config.name)?.value || '';
+      const cookieValue = this.cookieStore.get(mainCookieName)?.value || '';
       AuthUtils.checkCookieSize(cookieValue, this.config.cookieSizeThreshold, this.logger);
 
       this.logger.info('Session created', {
         userId: user.id,
-        issuedAt: sessionData.issuedAt
+        issuedAt: sessionData.issuedAt,
+        mainCookie: mainCookieName,
+        jsCookie: jsCookieName
       });
 
       return sessionData;
@@ -201,6 +214,9 @@ export class SessionManager {
    */
   async destroySession(): Promise<void> {
     try {
+      const mainCookieName = this.config.name;
+      const jsCookieName = `${this.config.name}-session`;
+
       const ironStore = {
         get: this.cookieStore.get,
         set: this.cookieStore.set,
@@ -209,7 +225,7 @@ export class SessionManager {
       const session = await getIronSession<Session>(
         ironStore as never,
         {
-          cookieName: this.config.name,
+          cookieName: mainCookieName,
           password: this.config.secret,
           cookieOptions: this.config.cookie,
         }
@@ -218,16 +234,23 @@ export class SessionManager {
       const userId = session.user?.id;
       session.destroy();
 
-      this.logger.info('Session destroyed', { userId });
+      // Also remove the JavaScript-accessible session boolean cookie
+      if (this.cookieStore.delete) {
+        this.cookieStore.delete(jsCookieName);
+      }
+
+      this.logger.info('Session destroyed', {
+        userId,
+        mainCookie: mainCookieName,
+        jsCookie: jsCookieName
+      });
     } catch (error) {
       this.logger.error('Failed to destroy session', {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       throw error;
     }
-  }
-
-  /**
+  }  /**
    * Check if session exists and is valid
    */
   async isAuthenticated(): Promise<boolean> {
