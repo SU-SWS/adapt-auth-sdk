@@ -28,6 +28,156 @@ callbacks: {
 }
 ```
 
+### Dynamic Session Updates
+
+Use the `updateSession` method to modify session data after initial authentication:
+
+```typescript
+// Update user preferences
+export async function updateUserPreferences(request: Request, preferences: any) {
+  const session = await auth.getSession(request);
+  if (!session) return null;
+
+  return await auth.updateSession({
+    meta: {
+      ...session.meta,
+      preferences,
+      lastUpdated: Date.now(),
+    }
+  });
+}
+
+// Track user activity
+export async function trackUserActivity(request: Request, activity: string) {
+  const session = await auth.getSession(request);
+  if (!session) return;
+
+  const currentActivities = session.meta?.activities || [];
+  const recentActivities = currentActivities.slice(-9); // Keep last 9 + new one = 10
+
+  await auth.updateSession({
+    meta: {
+      ...session.meta,
+      activities: [...recentActivities, {
+        action: activity,
+        timestamp: Date.now(),
+        path: new URL(request.url).pathname,
+      }],
+      lastActivity: Date.now(),
+    }
+  });
+}
+
+// Update user profile information
+export async function updateUserProfile(request: Request, profileUpdates: Partial<User>) {
+  const session = await auth.getSession(request);
+  if (!session) return null;
+
+  return await auth.updateSession({
+    user: {
+      ...session.user,
+      ...profileUpdates,
+    },
+    meta: {
+      ...session.meta,
+      profileUpdated: Date.now(),
+    }
+  });
+}
+
+// Add role-based metadata
+export async function addUserRoles(request: Request, roles: string[]) {
+  const session = await auth.getSession(request);
+  if (!session) return null;
+
+  return await auth.updateSession({
+    meta: {
+      ...session.meta,
+      roles,
+      rolesUpdated: Date.now(),
+    }
+  });
+}
+
+// Complex metadata management
+export async function manageUserContext(request: Request, context: {
+  theme?: 'light' | 'dark';
+  language?: string;
+  timezone?: string;
+  notifications?: boolean;
+  features?: string[];
+}) {
+  const session = await auth.getSession(request);
+  if (!session) return null;
+
+  // Merge with existing context
+  const existingContext = session.meta?.context || {};
+  const updatedContext = { ...existingContext, ...context };
+
+  return await auth.updateSession({
+    meta: {
+      ...session.meta,
+      context: updatedContext,
+      contextUpdated: Date.now(),
+    }
+  });
+}
+```
+
+### Session Size Management
+
+Keep sessions under the recommended size limit while updating:
+
+```typescript
+// Monitor and optimize session size
+export async function updateSessionSafely(request: Request, updates: Partial<Session>) {
+  const session = await auth.getSession(request);
+  if (!session) return null;
+
+  // Estimate size of updates
+  const estimatedSize = JSON.stringify({ ...session, ...updates }).length;
+
+  if (estimatedSize > 3500) { // Cookie size threshold
+    console.warn('Session update may exceed size limit', {
+      currentSize: JSON.stringify(session).length,
+      estimatedSize,
+      userId: session.user.id
+    });
+
+    // Trim older metadata if needed
+    const trimmedMeta = trimSessionMetadata(session.meta);
+    updates.meta = { ...trimmedMeta, ...updates.meta };
+  }
+
+  return await auth.updateSession(updates);
+}
+
+function trimSessionMetadata(meta: any) {
+  if (!meta) return {};
+
+  const trimmed = { ...meta };
+
+  // Remove old activities (keep only recent 5)
+  if (trimmed.activities && Array.isArray(trimmed.activities)) {
+    trimmed.activities = trimmed.activities.slice(-5);
+  }
+
+  // Remove old tracking data
+  delete trimmed.debugInfo;
+  delete trimmed.detailedUserAgent;
+
+  // Keep only essential data
+  return {
+    preferences: trimmed.preferences,
+    theme: trimmed.theme,
+    language: trimmed.language,
+    roles: trimmed.roles,
+    lastActivity: trimmed.lastActivity,
+    activities: trimmed.activities,
+  };
+}
+```
+
 ### Custom Cookie Stores
 
 Implement custom cookie storage for specialized frameworks:
