@@ -314,8 +314,6 @@ export class SAMLProvider {
       userName: attributes.userName,
       firstName: attributes.firstName,
       lastName: attributes.lastName,
-      domain: attributes['oracle:cloud:identity:domain'],
-      tenant: attributes['oracle:cloud:identity:tenant'],
       sessionId: attributes['oracle:cloud:identity:sessionid'],
     };
   }

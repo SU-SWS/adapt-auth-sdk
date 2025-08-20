@@ -119,9 +119,7 @@ describe('SAMLProvider', () => {
         sessionIndex: 'session-123',
         nameID: 'user@example.com',
         nameIDFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
-        'oracle:cloud:identity:domain': 'stanford.edu',
         'oracle:cloud:identity:sessionid': 'session-123',
-        'oracle:cloud:identity:tenant': 'tenant-123',
         encodedSUID: 'encoded-suid-123',
         'oracle:cloud:identity:url': 'https://oracle.stanford.edu',
         userName: 'testuser',
@@ -168,8 +166,6 @@ describe('SAMLProvider', () => {
         userName: mockProfile.userName,
         firstName: mockProfile.firstName,
         lastName: mockProfile.lastName,
-        domain: mockProfile['oracle:cloud:identity:domain'],
-        tenant: mockProfile['oracle:cloud:identity:tenant'],
         sessionId: mockProfile['oracle:cloud:identity:sessionid'],
       });
     });

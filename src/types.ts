@@ -373,11 +373,9 @@ export type LogoutOptions = {
  * SAML Response structure from Stanford
  */
 export type SAMLResponseAttributes = {
-  'oracle:cloud:identity:domain': string;
   firstName?: string;
   lastName?: string;
   'oracle:cloud:identity:sessionid': string;
-  'oracle:cloud:identity:tenant': string;
   encodedSUID: string;
   suid?: string;
   'oracle:cloud:identity:url': string;
