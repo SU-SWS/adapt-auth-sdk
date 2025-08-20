@@ -348,3 +348,37 @@ export function createWebCookieStore(request: Request, response: Response): Cook
     },
   };
 }
+
+/**
+ * Client-side utility to check if user is authenticated by reading the JavaScript-accessible session cookie
+ * This matches the server-side SessionManager.isAuthenticated() functionality
+ *
+ * @param sessionName - The base session name (without -session suffix)
+ * @returns boolean indicating if the user is authenticated
+ *
+ * @example
+ * ```typescript
+ * // Check if user is authenticated on the client
+ * if (isAuthenticated('adapt-auth')) {
+ *   console.log('User is authenticated');
+ * }
+ * ```
+ */
+export function isAuthenticated(sessionName: string): boolean {
+  if (typeof document === 'undefined') {
+    // Not in browser environment
+    return false;
+  }
+
+  const jsCookieName = `${sessionName}-session`;
+  const cookies = document.cookie.split(';');
+
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === jsCookieName && value === 'true') {
+      return true;
+    }
+  }
+
+  return false;
+}

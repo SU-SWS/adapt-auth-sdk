@@ -161,6 +161,21 @@ if (session) {
 }
 ```
 
+### Client-Side Authentication Check
+
+```typescript
+// Check authentication status in browser JavaScript
+import { isAuthenticated } from 'adapt-auth-sdk';
+
+if (isAuthenticated('adapt-auth')) {
+  console.log('User is authenticated');
+  // Show authenticated UI
+} else {
+  console.log('User is not authenticated');
+  // Show login button
+}
+```
+
 ### Protecting Routes
 
 ```typescript
