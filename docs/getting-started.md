@@ -42,7 +42,7 @@ export async function GET() {
   return await auth.login({ returnTo: '/dashboard' });
 }
 
-// app/api/auth/acs/route.ts
+// app/api/auth/callback/route.ts
 import { auth } from '../../config';
 
 export async function POST(request: Request) {
@@ -104,7 +104,7 @@ app.get('/auth/login', async (req, res) => {
 });
 
 // SAML callback (ACS)
-app.post('/auth/acs', async (req, res) => {
+app.post('/auth/callback', async (req, res) => {
   try {
     const { user, returnTo } = await samlProvider.authenticate({ req });
 

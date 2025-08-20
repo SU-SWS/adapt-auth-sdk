@@ -23,16 +23,14 @@ The ADAPT Auth SDK implements multiple layers of security to protect against com
 
 ### RelayState Security
 
-The RelayState mechanism is secured with HMAC signing:
+The RelayState mechanism carries return URL information:
 
 ```typescript
 // RelayState contains:
 {
-  nonce: string,      // Cryptographically random value
-  issuedAt: number,   // Timestamp for age validation
-  returnTo?: string   // Optional redirect URL
+  return_to?: string  // Optional redirect URL
 }
-// Signed with: HMAC-SHA256(payload, secret)
+// Stored as plain JSON
 ```
 
 ## Threat Protection
@@ -70,12 +68,12 @@ const isValid = AuthUtils.validateCSRFToken(token, session);
 ```
 
 #### Replay Attacks
-**Protection**: Timestamp validation and nonce verification
+**Protection**: SAML InResponseTo validation and assertion conditions
 ```typescript
-// RelayState age validation
-if (Date.now() - payload.issuedAt > maxAge * 1000) {
-  throw new Error('RelayState expired');
-}
+// SAML response validation includes:
+// - InResponseTo matching
+// - NotBefore/NotOnOrAfter conditions
+// - Audience validation
 ```
 
 #### Open Redirect
@@ -159,9 +157,6 @@ saml: {
 ```bash
 # Generate strong session secret (32+ characters)
 ADAPT_AUTH_SESSION_SECRET="$(openssl rand -base64 32)"
-
-# Generate RelayState secret
-ADAPT_AUTH_RELAY_STATE_SECRET="$(openssl rand -base64 32)"
 ```
 
 ### 2. Configure HTTPS
@@ -265,7 +260,7 @@ const auth = createAdaptNext({
 - Authentication attempts (success/failure)
 - Session creation/destruction
 - SAML response validation results
-- RelayState validation failures
+- Return URL sanitization events
 - Cookie size warnings
 - Configuration validation errors
 
@@ -325,7 +320,7 @@ response.setHeader('Set-Cookie',
 
 1. **Authentication Flow Security**
    - SAML response tampering
-   - RelayState manipulation
+   - Return URL manipulation
    - Session hijacking attempts
 
 2. **Cookie Security**

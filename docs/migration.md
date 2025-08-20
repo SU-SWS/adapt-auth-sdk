@@ -10,7 +10,7 @@ ADAPT Auth SDK v2.0 introduces significant architectural changes:
 
 - **Framework Agnostic**: No longer tied to specific frameworks
 - **Modern TypeScript**: Full TypeScript rewrite with strict typing
-- **Enhanced Security**: HMAC-signed RelayState, CSRF protection
+- **Enhanced Security**: URL sanitization, CSRF protection
 - **Simplified API**: Cleaner, more intuitive interfaces
 - **Cookie-Only Sessions**: No server-side session storage required
 

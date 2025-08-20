@@ -4,6 +4,73 @@ Complete API documentation for the ADAPT Auth SDK.
 
 ## Core Classes
 
+### AdaptNext (Next.js Integration)
+
+Simplified authentication wrapper for Next.js App Router.
+
+#### Constructor
+
+```typescript
+constructor(config: AdaptNextConfig)
+```
+
+#### Methods
+
+##### login(options?: LoginOptions): Promise<Response>
+
+Initiates SAML login flow.
+
+**Parameters:**
+- `options?: LoginOptions` - Optional login configuration
+
+**Returns:**
+- `Response` - Redirect response to IdP
+
+##### authenticate(request: Request): Promise<{ user: User; session: Session; returnTo?: string }>
+
+Handles SAML callback and creates session.
+
+**Parameters:**
+- `request: Request` - Next.js request object with SAML response
+
+**Returns:**
+- Object containing authenticated user, session, and optional returnTo URL
+
+##### getSession(): Promise<Session | null>
+
+Gets current session.
+
+##### getUser(): Promise<User | null>
+
+Gets current authenticated user.
+
+##### isAuthenticated(): Promise<boolean>
+
+Checks if user is authenticated.
+
+##### logout(): Promise<void>
+
+Logs out user and destroys session.
+
+##### updateSession(updates: Partial<Session>): Promise<Session | null>
+
+Updates existing session with new data.
+
+**Parameters:**
+- `updates: Partial<Session>` - Partial session data to merge
+
+##### refreshSession(): Promise<Session | null>
+
+Refreshes session (sliding expiration).
+
+##### getLoginUrl(options?: LoginOptions): Promise<string>
+
+Creates login URL without redirecting.
+
+##### auth(handler: RouteHandler): RouteHandler
+
+Middleware function for protecting routes.
+
 ### SAMLProvider
 
 The SAML authentication provider for Stanford WebAuth integration.
@@ -14,56 +81,19 @@ The SAML authentication provider for Stanford WebAuth integration.
 constructor(config: SamlConfig, logger?: Logger)
 ```
 
-**Parameters:**
-- `config: SamlConfig` - SAML configuration object
-- `logger?: Logger` - Optional logger instance
-
 #### Methods
 
-##### authenticate(returnTo?: string): Promise<{ redirectUrl: string; relayState: string }>
+##### getLoginUrl(options?: LoginOptions): Promise<string>
 
-Initiates SAML authentication flow.
+Generate login URL for SAML authentication.
 
-**Parameters:**
-- `returnTo?: string` - Optional URL to redirect to after authentication
+##### authenticate(options: AuthenticateOptions): Promise<{ user: User; profile: SAMLProfile; returnTo?: string }>
 
-**Returns:**
-- `redirectUrl: string` - URL to redirect user to IdP
-- `relayState: string` - Signed RelayState token
+Authenticate SAML response from IdP.
 
-**Example:**
-```typescript
-const samlProvider = new SAMLProvider(config);
-const { redirectUrl } = await samlProvider.authenticate('/dashboard');
-// Redirect user to redirectUrl
-```
+##### getConfig(): Record<string, unknown>
 
-##### handleCallback(body: string, relayState?: string): Promise<{ user: User; returnTo?: string }>
-
-Processes SAML callback from IdP.
-
-**Parameters:**
-- `body: string` - URL-encoded form body containing SAMLResponse
-- `relayState?: string` - RelayState parameter from callback
-
-**Returns:**
-- `user: User` - Authenticated user object
-- `returnTo?: string` - URL to redirect to (if provided in RelayState)
-
-**Throws:**
-- `SAMLError` - If SAML validation fails
-- `AuthError` - For general authentication errors
-
-**Example:**
-```typescript
-const formData = await request.formData();
-const body = new URLSearchParams(formData).toString();
-const relayState = formData.get('RelayState');
-
-const { user, returnTo } = await samlProvider.handleCallback(body, relayState);
-```
-
----
+Get SAML provider configuration (for debugging).
 
 ### SessionManager
 
@@ -75,302 +105,121 @@ Framework-agnostic session management using encrypted cookies.
 constructor(cookieStore: CookieStore, config: SessionConfig, logger?: Logger)
 ```
 
-**Parameters:**
-- `cookieStore: CookieStore` - Cookie storage implementation
-- `config: SessionConfig` - Session configuration
-- `logger?: Logger` - Optional logger instance
-
 #### Methods
 
 ##### getSession(): Promise<Session | null>
 
 Retrieves current session from cookie.
 
-**Returns:**
-- `Session | null` - Current session or null if not authenticated
-
-**Example:**
-```typescript
-const session = await sessionManager.getSession();
-if (session) {
-  console.log('User:', session.user.name);
-}
-```
-
-##### createSession(user: User, meta?: Record<string, unknown>): Promise<void>
+##### createSession(user: User, meta?: Record<string, unknown>): Promise<Session>
 
 Creates a new session and sets cookie.
 
-**Parameters:**
-- `user: User` - User object to store in session
-- `meta?: Record<string, unknown>` - Optional metadata
+##### updateSession(updates: Partial<Session>): Promise<Session | null>
 
-**Throws:**
-- `SessionError` - If session creation fails or cookie is too large
-
-**Example:**
-```typescript
-await sessionManager.createSession(user, {
-  loginTime: Date.now(),
-  userAgent: request.headers.get('user-agent'),
-});
-```
+Updates existing session with new data.
 
 ##### destroySession(): Promise<void>
 
 Destroys current session and clears cookie.
 
-**Example:**
-```typescript
-await sessionManager.destroySession();
-```
+##### refreshSession(): Promise<Session | null>
 
-##### updateSession(updates: Partial<Session>): Promise<void>
+Refresh session with updated timestamps.
 
-Updates existing session with new data.
+##### isAuthenticated(): Promise<boolean>
 
-**Parameters:**
-- `updates: Partial<Session>` - Partial session data to merge
+Check if user is authenticated.
 
-**Throws:**
-- `SessionError` - If no existing session or update fails
+##### getUser(): Promise<User | null>
 
-**Example:**
-```typescript
-await sessionManager.updateSession({
-  meta: { lastActivity: Date.now() },
-});
-```
+Get current authenticated user.
 
----
+### EdgeSessionReader
 
-### AdaptNext (Next.js Integration)
-
-Simplified authentication wrapper for Next.js App Router.
+Ultra-fast session validation for edge functions.
 
 #### Constructor
 
 ```typescript
-constructor(config: AdaptAuthConfig)
+constructor(secret: string, cookieName?: string)
 ```
-
-**Parameters:**
-- `config: AdaptAuthConfig` - Complete authentication configuration
 
 #### Methods
 
-##### getSession(request: Request): Promise<Session | null>
+##### getSessionFromRequest(request: Request): Promise<Session | null>
 
-Gets session from Next.js request.
+Get session from request in edge environment.
 
-**Parameters:**
-- `request: Request` - Next.js request object
+##### getSessionFromCookieHeader(cookieHeader: string): Promise<Session | null>
 
-**Returns:**
-- `Session | null` - Current session or null
+Parse session from cookie header string.
 
-**Example:**
-```typescript
-// In route handler
-export async function GET(request: Request) {
-  const session = await auth.getSession(request);
-  if (!session) {
-    return Response.redirect('/api/auth/login');
-  }
-  return Response.json(session.user);
-}
-```
+##### isAuthenticated(request: Request): Promise<boolean>
 
-##### login(request: Request): Promise<Response>
+Check if request is authenticated.
 
-Initiates SAML login flow.
+##### getUser(request: Request): Promise<User | null>
 
-**Parameters:**
-- `request: Request` - Next.js request object
+Get user from request.
 
-**Returns:**
-- `Response` - Redirect response to IdP
+##### getUserId(request: Request): Promise<string | null>
 
-**Example:**
-```typescript
-// In /api/auth/login/route.ts
-export async function GET(request: Request) {
-  return auth.login(request);
-}
-```
+Get user ID from request.
 
-##### handleCallback(request: Request): Promise<Response>
+## Factory Functions
 
-Handles SAML callback and creates session.
-
-**Parameters:**
-- `request: Request` - Next.js request object with SAML response
-
-**Returns:**
-- `Response` - Redirect response to post-login URL
-
-**Example:**
-```typescript
-// In /api/auth/acs/route.ts
-export async function POST(request: Request) {
-  return auth.handleCallback(request);
-}
-```
-
-##### logout(request: Request): Promise<Response>
-
-Logs out user and destroys session.
-
-**Parameters:**
-- `request: Request` - Next.js request object
-
-**Returns:**
-- `Response` - Redirect response to post-logout URL
-
-**Example:**
-```typescript
-// In /api/auth/logout/route.ts
-export async function POST(request: Request) {
-  return auth.logout(request);
-}
-```
-
-##### updateSession(updates: Partial<Session>): Promise<Session | null>
-
-Updates existing session with new data. Convenience function for adding custom metadata or updating user information in the session cookie.
-
-**Parameters:**
-- `updates: Partial<Session>` - Partial session data to merge with existing session
-
-**Returns:**
-- `Session | null` - Updated session or null if no existing session
-
-**Throws:**
-- `Error` - If called in browser environment (server-side only)
-
-**Example:**
-```typescript
-// Add custom metadata to session
-await auth.updateSession({
-  meta: {
-    theme: 'dark',
-    language: 'en',
-    lastVisited: '/dashboard',
-    preferences: { notifications: true }
-  }
-});
-
-// Update user information
-const currentSession = await auth.getSession();
-await auth.updateSession({
-  user: {
-    ...currentSession?.user,
-    displayName: 'John Doe',
-    avatar: '/images/avatar.jpg'
-  }
-});
-
-// Add metadata after user action
-await auth.updateSession({
-  meta: {
-    ...currentSession?.meta,
-    lastActivity: new Date().toISOString(),
-    featuresUsed: ['dashboard', 'profile']
-  }
-});
-```
-
----
-
-## Cookie Store Implementations
-
-### NextCookieStore
-
-Cookie store implementation for Next.js.
+### createAdaptNext
 
 ```typescript
-createNextCookieStore(request: Request, response?: Response): CookieStore
+function createAdaptNext(config: AdaptNextConfig): AdaptNext
 ```
 
-### ExpressCookieStore
-
-Cookie store implementation for Express.js.
+### createSAMLProvider
 
 ```typescript
-createExpressCookieStore(req: express.Request, res: express.Response): CookieStore
+function createSAMLProvider(config?: Partial<SamlConfig>, logger?: Logger): SAMLProvider
 ```
 
-### WebCookieStore
-
-Generic cookie store for Web API frameworks.
+### createExpressCookieStore
 
 ```typescript
-createWebCookieStore(request: Request, response: Response): CookieStore
+function createExpressCookieStore(req: express.Request, res: express.Response): CookieStore
 ```
 
----
+### createWebCookieStore
+
+```typescript
+function createWebCookieStore(request: Request, response: Response): CookieStore
+```
+
+### createEdgeSessionReader
+
+```typescript
+function createEdgeSessionReader(secret?: string, cookieName?: string): EdgeSessionReader
+```
 
 ## Utility Functions
 
-### AuthUtils
+### Client-side Authentication Check
 
-Static utility class for cryptographic operations.
+```typescript
+function isAuthenticated(cookieName: string): boolean
+```
 
-#### Methods
+### Edge Utilities
 
-##### generateCSRFToken(): string
+```typescript
+function getUserIdFromRequest(request: Request, secret?: string): Promise<string | null>
+function getUserIdFromCookie(cookieValue: string, secret: string): Promise<string | null>
+```
 
-Generates a cryptographically secure CSRF token.
+### Next.js Utilities
 
-**Returns:**
-- `string` - Base64-encoded CSRF token
-
-##### validateCSRFToken(token: string, session: Session): boolean
-
-Validates a CSRF token against the session.
-
-**Parameters:**
-- `token: string` - CSRF token to validate
-- `session: Session` - Current session
-
-**Returns:**
-- `boolean` - True if token is valid
-
-##### createHMAC(data: string, secret: string): string
-
-Creates HMAC-SHA256 signature.
-
-**Parameters:**
-- `data: string` - Data to sign
-- `secret: string` - HMAC secret
-
-**Returns:**
-- `string` - Base64-encoded HMAC signature
-
-##### verifyHMAC(data: string, signature: string, secret: string): boolean
-
-Verifies HMAC signature.
-
-**Parameters:**
-- `data: string` - Original data
-- `signature: string` - Signature to verify
-- `secret: string` - HMAC secret
-
-**Returns:**
-- `boolean` - True if signature is valid
-
-##### sanitizeReturnUrl(url: string, allowedOrigins?: string[]): string | null
-
-Sanitizes and validates return URLs.
-
-**Parameters:**
-- `url: string` - URL to sanitize
-- `allowedOrigins?: string[]` - Allowed origin list
-
-**Returns:**
-- `string | null` - Sanitized URL or null if invalid
-
----
+```typescript
+function getSessionFromNextRequest(request: Request, secret?: string, cookieName?: string): Promise<Session | null>
+function getSessionFromNextCookies(cookies: NextCookies, secret?: string, cookieName?: string): Promise<Session | null>
+```
 
 ## Type Definitions
 
@@ -408,16 +257,21 @@ interface SamlConfig {
   idpCert: string;
   returnToOrigin: string;
 
-  // Optional
+  // Optional with defaults
   serviceProviderLoginUrl?: string;
   returnToPath?: string;
   includeReturnTo?: boolean;
-  relayStateMaxAge?: number;
-  relayStateSecret?: string;
+  privateKey?: string;
   decryptionPvk?: string;
+  audience?: string;
   wantAssertionsSigned?: boolean;
   wantAuthnResponseSigned?: boolean;
   acceptedClockSkewMs?: number;
+  signatureAlgorithm?: string;
+  identifierFormat?: string;
+  allowCreate?: boolean;
+  additionalParams?: Record<string, unknown>;
+  additionalAuthorizeParams?: Record<string, unknown>;
 }
 ```
 
@@ -439,138 +293,103 @@ interface SessionConfig {
 }
 ```
 
+#### AdaptNextConfig
+
+```typescript
+interface AdaptNextConfig {
+  saml: SamlConfig;
+  session: SessionConfig;
+  callbacks?: AuthCallbacks;
+  logger?: Logger;
+  verbose?: boolean;
+}
+```
+
 #### AuthCallbacks
 
 ```typescript
 interface AuthCallbacks {
-  mapProfile?: (profile: any) => Promise<User> | User;
-  signIn?: (params: { user: User; profile: any }) => Promise<void> | void;
+  mapProfile?: (profile: SAMLProfile) => Promise<User> | User;
+  signIn?: (params: { user: User; profile: SAMLProfile }) => Promise<void> | void;
   signOut?: (params: { session: Session }) => Promise<void> | void;
-  session?: (params: {
-    session: Session;
-    user: User;
-    req: Request;
-  }) => Promise<Session> | Session;
+  session?: (params: { session: Session; user: User; req: Request }) => Promise<void> | void;
 }
 ```
 
-### Error Types
+## Error Classes
 
-#### AuthError
+All error classes extend `AuthError` from the types module.
 
-Base error class for authentication errors.
-
-```typescript
-class AuthError extends Error {
-  code: string;
-  constructor(message: string, code: string = 'AUTH_ERROR');
-}
-```
-
-#### SAMLError
-
-SAML-specific error class.
+### SAMLError
 
 ```typescript
 class SAMLError extends AuthError {
-  issuer?: string;
-  constructor(message: string, code: string = 'SAML_ERROR', issuer?: string);
+  constructor(message: string, samlCode: string, issuer?: string, statusCode?: number)
 }
 ```
 
-#### SessionError
-
-Session-specific error class.
+### SessionError
 
 ```typescript
 class SessionError extends AuthError {
-  sessionName?: string;
-  constructor(message: string, code: string = 'SESSION_ERROR', sessionName?: string);
+  constructor(message: string, sessionCode: string, sessionName?: string, statusCode?: number)
 }
 ```
 
-### Logger Interface
+### ConfigError
 
 ```typescript
-interface Logger {
-  debug(message: string, meta?: any): void;
-  info(message: string, meta?: any): void;
-  warn(message: string, meta?: any): void;
-  error(message: string, error?: any): void;
+class ConfigError extends AuthError {
+  constructor(message: string, configCode: string, fieldName?: string, statusCode?: number)
 }
 ```
 
-### Cookie Store Interface
+### NetworkError
 
 ```typescript
-interface CookieStore {
-  get(name: string): Promise<string | undefined>;
-  set(name: string, value: string, options: any): Promise<void>;
-  delete(name: string): Promise<void>;
+class NetworkError extends AuthError {
+  constructor(message: string, networkCode: string, operation?: string, originalError?: Error, statusCode?: number)
 }
 ```
 
----
+## Logger Classes
 
-## Configuration Factory Functions
+### DefaultLogger
 
-### createAdaptNext
-
-Creates a configured AdaptNext instance for Next.js.
+Structured JSON logger with PII redaction.
 
 ```typescript
-function createAdaptNext(config: AdaptAuthConfig): AdaptNext
+class DefaultLogger implements Logger {
+  constructor(verbose?: boolean)
+  debug(message: string, meta?: Record<string, unknown>): void
+  info(message: string, meta?: Record<string, unknown>): void
+  warn(message: string, meta?: Record<string, unknown>): void
+  error(message: string, meta?: Record<string, unknown>): void
+  setContext(context: Record<string, unknown>): void
+}
 ```
 
-### createSAMLProvider
+### ConsoleLogger
 
-Creates a configured SAML provider.
+Simple console logger with prefixes.
 
 ```typescript
-function createSAMLProvider(config: SamlConfig, logger?: Logger): SAMLProvider
+class ConsoleLogger implements Logger
 ```
 
-### createSessionManager
+### SilentLogger
 
-Creates a configured session manager.
+No-op logger for production.
 
 ```typescript
-function createSessionManager(
-  cookieStore: CookieStore,
-  config: SessionConfig,
-  logger?: Logger
-): SessionManager
+class SilentLogger implements Logger
 ```
-
----
-
-## Environment Configuration
-
-The SDK can be configured using environment variables:
-
-### Required Variables
-
-- `ADAPT_AUTH_SAML_ENTITY` - SAML entity ID
-- `ADAPT_AUTH_SAML_CERT` - IdP certificate
-- `ADAPT_AUTH_SAML_RETURN_ORIGIN` - Application base URL
-- `ADAPT_AUTH_SESSION_SECRET` - Session encryption secret
-
-### Optional Variables
-
-- `ADAPT_AUTH_SAML_SP_URL` - Service provider login URL
-- `ADAPT_AUTH_SAML_RETURN_PATH` - ACS path
-- `ADAPT_AUTH_SAML_DECRYPTION_KEY` - SAML decryption key
-- `ADAPT_AUTH_RELAY_STATE_SECRET` - RelayState signing secret
-- `ADAPT_AUTH_SESSION_NAME` - Session cookie name
-
----
 
 ## Usage Examples
 
 ### Basic Next.js Setup
 
 ```typescript
-// lib/auth.ts
 import { createAdaptNext } from 'adapt-auth-sdk';
 
 export const auth = createAdaptNext({
@@ -580,34 +399,27 @@ export const auth = createAdaptNext({
     returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!,
   },
   session: {
-    name: 'adapt-auth-session',
+    name: 'adapt-auth',
     secret: process.env.ADAPT_AUTH_SESSION_SECRET!,
   },
 });
 
 // app/api/auth/login/route.ts
-export async function GET(request: Request) {
-  return auth.login(request);
+export async function GET() {
+  return auth.login({ returnTo: '/dashboard' });
 }
 
-// app/api/auth/acs/route.ts
+// app/api/auth/callback/route.ts
 export async function POST(request: Request) {
-  return auth.handleCallback(request);
-}
-
-// app/api/auth/logout/route.ts
-export async function POST(request: Request) {
-  return auth.logout(request);
+  const { user, returnTo } = await auth.authenticate(request);
+  return Response.redirect(returnTo || '/dashboard');
 }
 ```
 
 ### Express.js Setup
 
 ```typescript
-import express from 'express';
 import { SAMLProvider, SessionManager, createExpressCookieStore } from 'adapt-auth-sdk';
-
-const app = express();
 
 const samlProvider = new SAMLProvider({
   issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
@@ -615,35 +427,36 @@ const samlProvider = new SAMLProvider({
   returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!,
 });
 
-// Middleware to create session manager per request
-app.use((req, res, next) => {
+app.get('/auth/login', async (req, res) => {
+  const loginUrl = await samlProvider.getLoginUrl({ returnTo: '/dashboard' });
+  res.redirect(loginUrl);
+});
+
+app.post('/auth/callback', async (req, res) => {
+  const { user, returnTo } = await samlProvider.authenticate({ req });
+
   const cookieStore = createExpressCookieStore(req, res);
-  req.sessionManager = new SessionManager(cookieStore, {
-    name: 'adapt-auth-session',
+  const sessionManager = new SessionManager(cookieStore, {
+    name: 'adapt-auth',
     secret: process.env.ADAPT_AUTH_SESSION_SECRET!,
   });
-  next();
-});
 
-// Routes
-app.get('/auth/login', async (req, res) => {
-  const { redirectUrl } = await samlProvider.authenticate();
-  res.redirect(redirectUrl);
-});
-
-app.post('/auth/acs', express.urlencoded({ extended: true }), async (req, res) => {
-  try {
-    const { user, returnTo } = await samlProvider.handleCallback(
-      new URLSearchParams(req.body).toString(),
-      req.body.RelayState
-    );
-
-    await req.sessionManager.createSession(user);
-    res.redirect(returnTo || '/dashboard');
-  } catch (error) {
-    res.status(401).send('Authentication failed');
-  }
+  await sessionManager.createSession(user);
+  res.redirect(returnTo || '/dashboard');
 });
 ```
 
-This API reference provides comprehensive documentation for all classes, methods, types, and configuration options available in the ADAPT Auth SDK.
+### Edge Function Session Validation
+
+```typescript
+import { createEdgeSessionReader } from 'adapt-auth-sdk/edge-session';
+
+export async function middleware(request: NextRequest) {
+  const reader = createEdgeSessionReader();
+  const isAuthenticated = await reader.isAuthenticated(request);
+
+  if (!isAuthenticated && request.nextUrl.pathname.startsWith('/protected')) {
+    return Response.redirect(new URL('/api/auth/login', request.url));
+  }
+}
+```

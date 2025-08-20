@@ -32,14 +32,14 @@ DX: Create convenient hooks and utilities for common tasks (e.g., session manage
 
 1) SAML (SP‑initiated only) & RelayState
 
-Login: Build AuthnRequest → redirect to IdP. Generate RelayState as a compact, HMAC‑signed JSON:
+Login: Build AuthnRequest → redirect to IdP. Generate RelayState as simple JSON:
 
-type RelayStatePayload = { nonce: string; issuedAt: number; returnTo?: string };
-// Encoded as: base64url(JSON) + "." + base64url(HMAC-SHA256)
+type RelayStatePayload = { return_to?: string };
+// Stored as: JSON.stringify(payload)
 
-If includeReturnTo, set returnTo to the URL that initiated login (sanitize + allow-list same-origin).
+If includeReturnTo, set return_to to the URL that initiated login (sanitize + allow-list same-origin).
 
-Store no server state; validate statelessly at ACS via HMAC and maxAgeSec.
+Store no server state; validate at ACS by sanitizing return_to URLs.
 
 ACS:
 

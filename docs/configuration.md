@@ -23,12 +23,12 @@ ADAPT_AUTH_SESSION_SECRET="your-32-character-minimum-secret"
 ```bash
 # SAML Configuration
 ADAPT_AUTH_SAML_SP_URL="https://adapt-sso-uat.stanford.edu/api/sso/login"
-ADAPT_AUTH_SAML_RETURN_PATH="/api/auth/acs"
+ADAPT_AUTH_SAML_RETURN_PATH="/api/auth/callback"
+ADAPT_AUTH_SAML_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----..."
 ADAPT_AUTH_SAML_DECRYPTION_KEY="-----BEGIN PRIVATE KEY-----..."
-ADAPT_AUTH_RELAY_STATE_SECRET="your-relay-state-secret"
 
 # Session Configuration
-ADAPT_AUTH_SESSION_NAME="adapt-auth-session"
+ADAPT_AUTH_SESSION_NAME="adapt-auth"
 ```
 
 ## Configuration Object
@@ -50,7 +50,6 @@ const auth = createAdaptNext({
     returnToPath: '/api/auth/acs',
     includeReturnTo: true,
     relayStateMaxAge: 300, // 5 minutes
-    relayStateSecret: 'your-hmac-secret',
 
     // SAML Protocol Options
     wantAssertionsSigned: true,

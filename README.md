@@ -1,6 +1,6 @@
 # ADAPT Auth SDK
 
-A framework-agnostic TypeScript authentication library for ADAPT SAML integration. Designed for serverless, stateless environments with security-first defaults.
+A framework-agnostic TypeScript authentication library for Stanford SAML integration. Designed for serverless, stateless environments with security-first defaults and cookie-only sessions.
 
 ## Features
 
@@ -27,14 +27,12 @@ import { createAdaptNext } from 'adapt-auth-sdk';
 
 export const auth = createAdaptNext({
   saml: {
-    // Required fields only - sensible defaults provided for everything else
     issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
     idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
     returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!,
   },
   session: {
-    // Required fields only - sensible defaults provided for everything else
-    name: 'adapt-auth',  // Main cookie will be 'adapt-auth', JS cookie will be 'adapt-auth-session'
+    name: 'adapt-auth',
     secret: process.env.ADAPT_AUTH_SESSION_SECRET!,
   },
 });
@@ -89,18 +87,21 @@ export const auth = createAdaptNext({
 
 ```typescript
 // app/api/auth/login/route.ts
-export async function GET(request: Request) {
-  return auth.login(request);
+export async function GET() {
+  return auth.login({ returnTo: '/dashboard' });
 }
 
-// app/api/auth/acs/route.ts
+// app/api/auth/callback/route.ts
 export async function POST(request: Request) {
-  return auth.handleCallback(request);
+  const { user, session, returnTo } = await auth.authenticate(request);
+  const redirectUrl = returnTo || '/dashboard';
+  return Response.redirect(redirectUrl);
 }
 
 // app/api/auth/logout/route.ts
-export async function POST(request: Request) {
-  return auth.logout(request);
+export async function POST() {
+  await auth.logout();
+  return Response.redirect('/login');
 }
 ```
 
@@ -155,9 +156,10 @@ ADAPT_AUTH_SESSION_SECRET="your-32-character-minimum-secret"
 ### Getting User Session
 
 ```typescript
-const session = await auth.getSession(request);
+const session = await auth.getSession();
 if (session) {
   console.log('User:', session.user.name);
+  console.log('Authenticated:', await auth.isAuthenticated());
 }
 ```
 
@@ -189,14 +191,12 @@ await auth.updateSession({
 
 ```typescript
 // Check authentication status in browser JavaScript
-import { isAuthenticated } from 'adapt-auth-sdk';
+import { isAuthenticated } from 'adapt-auth-sdk/session';
 
 if (isAuthenticated('adapt-auth')) {
   console.log('User is authenticated');
-  // Show authenticated UI
 } else {
-  console.log('User is not authenticated');
-  // Show login button
+  window.location.href = '/api/auth/login';
 }
 ```
 

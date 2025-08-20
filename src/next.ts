@@ -162,6 +162,7 @@ export class AdaptNext {
   private sessionConfig: SessionConfig;
   private logger: Logger;
   private callbacks?: AuthCallbacks;
+  private _sessionManager: SessionManager | null = null;
 
   constructor(config: AdaptNextConfig) {
     this.logger = config.logger || new DefaultLogger(config.verbose);
@@ -183,12 +184,23 @@ export class AdaptNext {
   }
 
   /**
-   * Create session manager with Next.js cookies
+   * Check for browser environment and throw error if detected
    */
-  private async createSessionManager() {
+  private assertServerEnvironment(methodName: string): void {
+    if (typeof window !== 'undefined') {
+      throw new Error(`AdaptNext.${methodName}() should not be called in a browser environment`);
+    }
+  }
+
+  /**
+   * Get or create session manager with Next.js cookies (cached)
+   */
+  private async getSessionManager(): Promise<SessionManager> {
     // Dynamic import to avoid issues with Next.js server components
     const { cookies } = await import('next/headers');
     const cookieStore = createNextjsCookieStore(await cookies());
+
+    // Create new instance each time since cookies() must be called fresh in Next.js
     return new SessionManager(cookieStore, this.sessionConfig, this.logger);
   }
 
@@ -196,14 +208,8 @@ export class AdaptNext {
    * Initiate SAML login
    */
   async login(options: LoginOptions = {}): Promise<Response> {
-    this.logger.debug('Initiating SAML login', { options });
-
-    // Check for browser environment
-    if (typeof window !== 'undefined') {
-      throw new Error('AdaptNext.login() should not be called in a browser environment');
-    }
-
-    return await this.samlProvider.login(options);
+    this.assertServerEnvironment('login');
+    return this.samlProvider.login(options);
   }
 
   /**
@@ -214,109 +220,69 @@ export class AdaptNext {
     session: Session;
     returnTo?: string;
   }> {
-    this.logger.debug('Processing SAML authentication');
+    this.assertServerEnvironment('authenticate');
 
-    // Check for browser environment
-    if (typeof window !== 'undefined') {
-      throw new Error('AdaptNext.authenticate() should not be called in a browser environment');
+    // Authenticate with SAML (let SAMLProvider handle its own error logging)
+    const { user, returnTo } = await this.samlProvider.authenticate({
+      req: request,
+      callbacks: this.callbacks,
+    });
+
+    // Create session (let SessionManager handle its own error logging)
+    const sessionManager = await this.getSessionManager();
+    const session = await sessionManager.createSession(user);
+
+    // Call session callback if provided
+    if (this.callbacks?.session) {
+      await this.callbacks.session({ session, user, req: request });
     }
 
-    try {
-      // Authenticate with SAML
-      const { user, returnTo } = await this.samlProvider.authenticate({
-        req: request,
-        callbacks: this.callbacks,
-      });
-
-      // Create session
-      const sessionManager = await this.createSessionManager();
-      const session = await sessionManager.createSession(user);
-
-      // Call session callback if provided
-      if (this.callbacks?.session) {
-        await this.callbacks.session({ session, user, req: request });
-      }
-
-      this.logger.info('Authentication successful', {
-        userId: user.id,
-        returnTo,
-      });
-
-      return { user, session, returnTo };
-
-    } catch (error) {
-      this.logger.error('Authentication failed', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-      throw error;
-    }
+    return { user, session, returnTo };
   }
 
   /**
    * Get current session
    */
   async getSession(): Promise<Session | null> {
-    // Check for browser environment
-    if (typeof window !== 'undefined') {
-      throw new Error('AdaptNext.getSession() should not be called in a browser environment');
-    }
-
-    try {
-      const sessionManager = await this.createSessionManager();
-      return await sessionManager.getSession();
-    } catch (error) {
-      this.logger.error('Failed to get session', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-      return null;
-    }
+    this.assertServerEnvironment('getSession');
+    const sessionManager = await this.getSessionManager();
+    return sessionManager.getSession();
   }
 
   /**
    * Get current user
    */
   async getUser(): Promise<User | null> {
-    const session = await this.getSession();
-    return session?.user || null;
+    this.assertServerEnvironment('getUser');
+    const sessionManager = await this.getSessionManager();
+    return sessionManager.getUser();
   }
 
   /**
    * Check if user is authenticated
    */
   async isAuthenticated(): Promise<boolean> {
-    const session = await this.getSession();
-    return session !== null && !!session.user;
+    this.assertServerEnvironment('isAuthenticated');
+    const sessionManager = await this.getSessionManager();
+    return sessionManager.isAuthenticated();
   }
 
   /**
    * Logout and destroy session
    */
   async logout(): Promise<void> {
-    // Check for browser environment
-    if (typeof window !== 'undefined') {
-      throw new Error('AdaptNext.logout() should not be called in a browser environment');
+    this.assertServerEnvironment('logout');
+
+    const sessionManager = await this.getSessionManager();
+
+    // Get session for callback before destroying it
+    const session = await sessionManager.getSession();
+    if (session && this.callbacks?.signOut) {
+      await this.callbacks.signOut({ session });
     }
 
-    try {
-      const session = await this.getSession();
-
-      if (session && this.callbacks?.signOut) {
-        await this.callbacks.signOut({ session });
-      }
-
-      const sessionManager = await this.createSessionManager();
-      await sessionManager.destroySession();
-
-      this.logger.info('User logged out', {
-        userId: session?.user?.id,
-      });
-
-    } catch (error) {
-      this.logger.error('Logout failed', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-      throw error;
-    }
+    // Let SessionManager handle destruction and logging
+    await sessionManager.destroySession();
   }
 
   /**
@@ -324,24 +290,16 @@ export class AdaptNext {
    */
   auth(handler: RouteHandler) {
     return async (request: Request): Promise<Response> => {
-      try {
-        const session = await this.getSession();
-        const context: AuthContext = {
-          session: session || undefined,
-          user: session?.user || undefined,
-          isAuthenticated: !!session?.user,
-        };
+      const sessionManager = await this.getSessionManager();
+      const session = await sessionManager.getSession();
 
-        return await handler(request, context);
+      const context: AuthContext = {
+        session: session || undefined,
+        user: session?.user || undefined,
+        isAuthenticated: !!session?.user,
+      };
 
-      } catch (error) {
-        this.logger.error('Auth middleware error', {
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-
-        // Return unauthorized response
-        return new Response('Unauthorized', { status: 401 });
-      }
+      return handler(request, context);
     };
   }
 
@@ -349,22 +307,16 @@ export class AdaptNext {
    * Create login URL without redirecting
    */
   async getLoginUrl(options: LoginOptions = {}): Promise<string> {
-    return await this.samlProvider.getLoginUrl(options);
+    return this.samlProvider.getLoginUrl(options);
   }
 
   /**
    * Refresh session (sliding expiration)
    */
   async refreshSession(): Promise<Session | null> {
-    try {
-      const sessionManager = await this.createSessionManager();
-      return await sessionManager.refreshSession();
-    } catch (error) {
-      this.logger.error('Failed to refresh session', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-      return null;
-    }
+    this.assertServerEnvironment('refreshSession');
+    const sessionManager = await this.getSessionManager();
+    return sessionManager.refreshSession();
   }
 
   /**
@@ -396,40 +348,23 @@ export class AdaptNext {
    * ```
    */
   async updateSession(updates: Partial<Session>): Promise<Session | null> {
-    // Check for browser environment
-    if (typeof window !== 'undefined') {
-      throw new Error('AdaptNext.updateSession() should not be called in a browser environment');
-    }
+    this.assertServerEnvironment('updateSession');
 
-    try {
-      const sessionManager = await this.createSessionManager();
-      const updatedSession = await sessionManager.updateSession(updates);
+    const sessionManager = await this.getSessionManager();
+    const updatedSession = await sessionManager.updateSession(updates);
 
-      if (updatedSession) {
-        this.logger.debug('Session updated', {
-          userId: updatedSession.user?.id,
-          hasMetadata: !!updatedSession.meta
-        });
-
-        // Call session callback if provided
-        if (this.callbacks?.session) {
-          // Create a minimal request-like object for session callback
-          const dummyRequest = new Request('http://localhost');
-          await this.callbacks.session({
-            session: updatedSession,
-            user: updatedSession.user,
-            req: dummyRequest
-          });
-        }
-      }
-
-      return updatedSession;
-    } catch (error) {
-      this.logger.error('Failed to update session', {
-        error: error instanceof Error ? error.message : 'Unknown error',
+    // Call session callback if provided and session was updated
+    if (updatedSession && this.callbacks?.session) {
+      // Create a minimal request-like object for session callback
+      const dummyRequest = new Request('http://localhost');
+      await this.callbacks.session({
+        session: updatedSession,
+        user: updatedSession.user,
+        req: dummyRequest
       });
-      return null;
     }
+
+    return updatedSession;
   }
 }
 

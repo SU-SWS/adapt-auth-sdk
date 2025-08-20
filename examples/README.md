@@ -180,7 +180,7 @@ All examples implement these security measures optimized for localhost and Netli
 - ✅ **HttpOnly cookies** prevent XSS attacks
 - ✅ **Secure cookies** in production (HTTPS only on Netlify)
 - ✅ **SameSite protection** prevents CSRF
-- ✅ **HMAC-signed RelayState** prevents tampering
+- ✅ **URL sanitization** prevents open redirects
 - ✅ **Session-only cookies** expire when browser closes
 - ✅ **Clock skew tolerance** for SAML validation
 - ✅ **CSRF token validation** for state changes

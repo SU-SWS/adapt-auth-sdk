@@ -33,7 +33,7 @@ This gives you the best of both worlds: secure SAML processing where it works be
 - **Role/Permission Checks**: Check user roles from session metadata
 - **Cookie Parsing**: Parse and validate session cookies
 - **CSRF Token Validation**: Validate CSRF tokens
-- **RelayState Verification**: Verify signed RelayState tokens
+- **Return URL Processing**: Process return URLs from RelayState
 
 ### ❌ What Requires Node.js
 
@@ -61,7 +61,7 @@ import { EdgeSessionReader } from 'adapt-auth-sdk/edge-session';
 // Create reader with session secret
 const sessionReader = new EdgeSessionReader(
   process.env.ADAPT_AUTH_SESSION_SECRET!,
-  'adapt-auth-session' // cookie name
+  'adapt-auth' // cookie name
 );
 
 // Check authentication from Request
@@ -70,8 +70,8 @@ const isAuthenticated = await sessionReader.isAuthenticated(request);
 // Get user from session
 const user = await sessionReader.getUser(request);
 
-// Check user roles
-const isAdmin = await sessionReader.hasRole(request, 'admin');
+// Get user ID
+const userId = await sessionReader.getUserId(request);
 ```
 
 ## Platform-Specific Examples
