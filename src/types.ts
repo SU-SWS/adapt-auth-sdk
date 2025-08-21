@@ -2,9 +2,26 @@
  * User data structure for session storage
  */
 export type User = {
+  /**
+   * Unique and stable identifier for the user.
+   * This value is used as the primary identifier for authentication.
+   * It must be unique across all users and should not change over time.
+   */
   id: string;
+
+  /**
+   * Email address of the user (optional)
+   */
   email?: string;
+
+  /**
+   * Full name of the user (optional)
+   */
   name?: string;
+
+  /**
+   * Profile image URL of the user (optional)
+   */
   imageUrl?: string;
   [key: string]: unknown; // Allow additional user properties
 };
@@ -19,9 +36,6 @@ export type Session = {
   expiresAt: number;
 };
 
-/**
- * RelayState payload structure
- */
 /**
  * RelayState payload structure
  */
