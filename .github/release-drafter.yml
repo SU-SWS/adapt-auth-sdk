@@ -6,9 +6,9 @@ categories:
       - "feature"
   - title: "🐛 Bug Fixes"
     labels:
-      - "fix"
-  - title: "🧰 Maintenance"
-    label: "task"
+      - 'fix'
+  - title: '🧰 Maintenance'
+    label: 'task'
 template: |
   ## Release Notes:
 
