@@ -273,7 +273,20 @@ export class SAMLProvider {
       // Parse RelayState as simple JSON
       const payload: RelayStatePayload = JSON.parse(relayState);
 
-      // Sanitize return_to URL
+    let payload: RelayStatePayload;
+    try {
+      // Parse RelayState as simple JSON
+      payload = JSON.parse(relayState);
+    } catch (error) {
+      this.logger.warn('Malformed RelayState: invalid JSON', {
+        error: error instanceof Error ? error.message : String(error),
+        relayState,
+      });
+      return undefined;
+    }
+
+    // Sanitize return_to URL
+    try {
       if (payload.return_to) {
         const allowedOrigins = [this.config.returnToOrigin];
         const sanitized = AuthUtils.sanitizeReturnTo(payload.return_to, allowedOrigins);
