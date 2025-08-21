@@ -98,7 +98,10 @@ export class AuthUtils {
    */
   static base64UrlEncode(data: string): string {
     // Use native btoa with proper Unicode handling for edge function compatibility
-    const base64 = btoa(unescape(encodeURIComponent(data)));
+    // Use TextEncoder for proper Unicode handling and edge function compatibility
+    const bytes = AuthUtils.encoder.encode(data);
+    const binary = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
+    const base64 = btoa(binary);
     return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   }
 
