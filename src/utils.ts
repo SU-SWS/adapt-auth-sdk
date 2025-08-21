@@ -97,14 +97,14 @@ export class AuthUtils {
    * Base64 URL encode
    */
   static base64UrlEncode(data: string): string {
-    // Use native btoa with proper Unicode handling for edge function compatibility
-    // Use TextEncoder for proper Unicode handling and edge function compatibility
+    // Use TextEncoder for proper Unicode handling and cross-platform compatibility
     const bytes = AuthUtils.encoder.encode(data);
+
+    // Convert to binary string for btoa (edge function compatible)
     const binary = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
-    // Use Buffer for robust Unicode and binary data handling in Node.js.
-    // TextEncoder encodes the string to UTF-8 bytes, which Buffer can safely base64 encode.
-    const bytes = AuthUtils.encoder.encode(data);
-    const base64 = Buffer.from(bytes).toString('base64');
+    const base64 = btoa(binary);
+
+    // Convert to URL-safe base64
     return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   }
 
