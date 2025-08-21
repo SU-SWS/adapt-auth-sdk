@@ -158,7 +158,7 @@ export class EdgeSessionReader {
   /**
    * Decrypt iron-session cookie value using iron-session's unsealData
    */
-  private async decryptSession(cookieValue: string): Promise<Session | null> {
+  async decryptSession(cookieValue: string): Promise<Session | null> {
     try {
       // Use iron-session's unsealData function directly
       const sessionData = await unsealData<Session>(cookieValue, {

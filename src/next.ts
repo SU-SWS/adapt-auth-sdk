@@ -82,7 +82,9 @@ export async function getSessionFromNextCookies(
   // Import and use EdgeSessionReader for decryption
   const { EdgeSessionReader } = await import('./edge-session');
   const reader = new EdgeSessionReader(sessionSecret, sessionName);
-  return reader['decryptSession'](cookie.value); // Access private method
+
+  // Use the public decryptSession method directly
+  return reader.decryptSession(cookie.value);
 }
 
 /**

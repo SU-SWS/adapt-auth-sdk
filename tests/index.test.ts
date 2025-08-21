@@ -151,7 +151,9 @@ describe('ADAPT Auth SDK exports', () => {
     it('should have AuthError properly extending Error', () => {
       expect(adaptAuth.AuthError.prototype).toBeInstanceOf(Error);
     });
-  });  describe('Factory function integration', () => {
+  });
+
+  describe('Factory function integration', () => {
     it('should have all factory functions return constructible objects', () => {
       // Test that factory functions exist and could theoretically create instances
       expect(adaptAuth.createSAMLProvider).toBeDefined();

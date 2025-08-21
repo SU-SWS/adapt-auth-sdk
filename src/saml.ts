@@ -164,7 +164,7 @@ export class SAMLProvider {
    */
   async login(options: LoginOptions = {}): Promise<Response> {
     const loginUrl = await this.getLoginUrl(options);
-    console.log('Generated login URL:', loginUrl);
+    this.logger.debug('Generated login URL:', { loginUrl });
     return Response.redirect(loginUrl, 302);
   }
 

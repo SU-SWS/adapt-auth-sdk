@@ -95,7 +95,9 @@ export class SessionManager {
       this.logger.error('Failed to get session', { error: error instanceof Error ? error.message : 'Unknown error' });
       return null;
     }
-  }  /**
+  }
+
+  /**
    * Create a new session
    */
   async createSession(user: User, meta?: Record<string, unknown>): Promise<Session> {
@@ -250,7 +252,9 @@ export class SessionManager {
       });
       throw error;
     }
-  }  /**
+  }
+
+  /**
    * Check if session exists and is valid
    */
   async isAuthenticated(): Promise<boolean> {
