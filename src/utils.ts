@@ -114,7 +114,13 @@ export class AuthUtils {
     const base64 = padded.replace(/-/g, '+').replace(/_/g, '/');
 
     // Use native atob with proper Unicode handling for edge function compatibility
-    return decodeURIComponent(escape(atob(base64)));
+    // Use TextDecoder for proper Unicode handling and edge function compatibility
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return AuthUtils.decoder.decode(bytes);
   }
 
   /**
