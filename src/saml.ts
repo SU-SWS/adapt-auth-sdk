@@ -269,11 +269,9 @@ export class SAMLProvider {
    * Process RelayState to extract returnTo URL
    */
   private async processRelayState(relayState: string): Promise<string | undefined> {
-    try {
-      // Parse RelayState as simple JSON
-      const payload: RelayStatePayload = JSON.parse(relayState);
-
+    // Parse RelayState as simple JSON
     let payload: RelayStatePayload;
+
     try {
       // Parse RelayState as simple JSON
       payload = JSON.parse(relayState);
@@ -290,17 +288,13 @@ export class SAMLProvider {
       if (payload.return_to) {
         const allowedOrigins = [this.config.returnToOrigin];
         const sanitized = AuthUtils.sanitizeReturnTo(payload.return_to, allowedOrigins);
-
         if (!sanitized) {
           this.logger.warn('Return_to URL failed sanitization', { return_to: payload.return_to });
           return '/';
         }
-
         return sanitized;
       }
-
       return undefined;
-
     } catch (error) {
       this.logger.error('Failed to process RelayState', {
         error: error instanceof Error ? error.message : 'Unknown error',
