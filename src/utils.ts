@@ -101,7 +101,10 @@ export class AuthUtils {
     // Use TextEncoder for proper Unicode handling and edge function compatibility
     const bytes = AuthUtils.encoder.encode(data);
     const binary = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
-    const base64 = btoa(binary);
+    // Use Buffer for robust Unicode and binary data handling in Node.js.
+    // TextEncoder encodes the string to UTF-8 bytes, which Buffer can safely base64 encode.
+    const bytes = AuthUtils.encoder.encode(data);
+    const base64 = Buffer.from(bytes).toString('base64');
     return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   }
 
