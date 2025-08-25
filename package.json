@@ -27,7 +27,7 @@
   "homepage": "https://github.com/SU-SWS/adapt-auth-sdk#readme",
   "dependencies": {
     "cookie": "^0.5.0",
-    "express": "^4.17.2",
+    "express": "^5.1.0",
     "jose": "^4.10.3",
     "passport": "^0.6.0",
     "passport-saml": "^3.2.0"
