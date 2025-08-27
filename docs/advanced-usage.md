@@ -6,7 +6,7 @@ This document covers advanced features and integration patterns for the ADAPT Au
 
 ### Session Enhancement
 
-Add custom metadata to sessions safely:
+Add custom metadata to sessions safely during authentication:
 
 ```typescript
 callbacks: {
@@ -47,27 +47,6 @@ export async function updateUserPreferences(request: Request, preferences: any) 
   });
 }
 
-// Track user activity
-export async function trackUserActivity(request: Request, activity: string) {
-  const session = await auth.getSession(request);
-  if (!session) return;
-
-  const currentActivities = session.meta?.activities || [];
-  const recentActivities = currentActivities.slice(-9); // Keep last 9 + new one = 10
-
-  await auth.updateSession({
-    meta: {
-      ...session.meta,
-      activities: [...recentActivities, {
-        action: activity,
-        timestamp: Date.now(),
-        path: new URL(request.url).pathname,
-      }],
-      lastActivity: Date.now(),
-    }
-  });
-}
-
 // Update user profile information
 export async function updateUserProfile(request: Request, profileUpdates: Partial<User>) {
   const session = await auth.getSession(request);
@@ -84,48 +63,11 @@ export async function updateUserProfile(request: Request, profileUpdates: Partia
     }
   });
 }
-
-// Add role-based metadata
-export async function addUserRoles(request: Request, roles: string[]) {
-  const session = await auth.getSession(request);
-  if (!session) return null;
-
-  return await auth.updateSession({
-    meta: {
-      ...session.meta,
-      roles,
-      rolesUpdated: Date.now(),
-    }
-  });
-}
-
-// Complex metadata management
-export async function manageUserContext(request: Request, context: {
-  theme?: 'light' | 'dark';
-  language?: string;
-  timezone?: string;
-  notifications?: boolean;
-  features?: string[];
-}) {
-  const session = await auth.getSession(request);
-  if (!session) return null;
-
-  // Merge with existing context
-  const existingContext = session.meta?.context || {};
-  const updatedContext = { ...existingContext, ...context };
-
-  return await auth.updateSession({
-    meta: {
-      ...session.meta,
-      context: updatedContext,
-      contextUpdated: Date.now(),
-    }
-  });
-}
 ```
 
 ### Session Size Management
 
+For a safe maximum, you should never exceed 4KB per cookie.
 Keep sessions under the recommended size limit while updating:
 
 ```typescript
@@ -134,7 +76,7 @@ export async function updateSessionSafely(request: Request, updates: Partial<Ses
   const session = await auth.getSession(request);
   if (!session) return null;
 
-  // Estimate size of updates
+  // Estimate size of updates (assumes UTF-8 and mostly alphabetical characters)
   const estimatedSize = JSON.stringify({ ...session, ...updates }).length;
 
   if (estimatedSize > 3500) { // Cookie size threshold
@@ -150,31 +92,6 @@ export async function updateSessionSafely(request: Request, updates: Partial<Ses
   }
 
   return await auth.updateSession(updates);
-}
-
-function trimSessionMetadata(meta: any) {
-  if (!meta) return {};
-
-  const trimmed = { ...meta };
-
-  // Remove old activities (keep only recent 5)
-  if (trimmed.activities && Array.isArray(trimmed.activities)) {
-    trimmed.activities = trimmed.activities.slice(-5);
-  }
-
-  // Remove old tracking data
-  delete trimmed.debugInfo;
-  delete trimmed.detailedUserAgent;
-
-  // Keep only essential data
-  return {
-    preferences: trimmed.preferences,
-    theme: trimmed.theme,
-    language: trimmed.language,
-    roles: trimmed.roles,
-    lastActivity: trimmed.lastActivity,
-    activities: trimmed.activities,
-  };
 }
 ```
 
@@ -228,67 +145,14 @@ callbacks: {
 
       // Map Stanford-specific attributes
       suid: getAttr('suid'),
-      affiliation: getAttr('affiliation'),
-      department: getAttr('department'),
-      workgroup: getAttr('workgroup'),
+      userName: getAttr('userName'),
+      encodedSUID: getAttr('encodedSUID'),
 
-      // Custom business logic
-      isEmployee: getAttr('affiliation')?.includes('staff'),
-      isStudent: getAttr('affiliation')?.includes('student'),
-
-      // Role mapping
-      roles: await mapStanfordRoles(getAttr('workgroup')),
+      // Oracle-specific attributes
+      sessionId: getAttr('oracle:cloud:identity:sessionid'),
     };
   }
 }
-```
-
-### Multi-Environment Configuration
-
-Handle different environments cleanly:
-
-```typescript
-const createAuthConfig = (env: 'dev' | 'staging' | 'production') => {
-  const baseConfig = {
-    saml: {
-      issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
-      idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
-      returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!,
-    },
-    session: {
-      name: 'adapt-auth-session',
-      secret: process.env.ADAPT_AUTH_SESSION_SECRET!,
-    },
-  };
-
-  const envConfigs = {
-    dev: {
-      saml: {
-        serviceProviderLoginUrl: 'https://adapt-sso-dev.stanford.edu/api/sso/login',
-        acceptedClockSkewMs: 120000, // More lenient for dev
-      },
-      verbose: true,
-    },
-    staging: {
-      saml: {
-        serviceProviderLoginUrl: 'https://adapt-sso-uat.stanford.edu/api/sso/login',
-      },
-      verbose: false,
-    },
-    production: {
-      saml: {
-        serviceProviderLoginUrl: 'https://adapt-sso.stanford.edu/api/sso/login',
-        wantAssertionsSigned: true,
-        wantAuthnResponseSigned: true,
-      },
-      verbose: false,
-    },
-  };
-
-  return { ...baseConfig, ...envConfigs[env] };
-};
-
-export const auth = createAdaptNext(createAuthConfig(process.env.NODE_ENV as any));
 ```
 
 ## Error Handling and Recovery
@@ -337,87 +201,6 @@ export async function handleAuthRequest(request: Request) {
 }
 ```
 
-### Graceful Degradation
-
-```typescript
-// Fallback authentication for system maintenance
-export async function getSessionWithFallback(request: Request) {
-  try {
-    return await auth.getSession(request);
-  } catch (error) {
-    if (process.env.MAINTENANCE_MODE === 'true') {
-      // Return read-only session during maintenance
-      return {
-        user: { id: 'maintenance', name: 'System Maintenance' },
-        isMaintenanceMode: true,
-      };
-    }
-    throw error;
-  }
-}
-```
-
-## Performance Optimization
-
-### Session Caching Strategy
-
-```typescript
-// Cache user data to reduce session size
-class UserDataCache {
-  private cache = new Map<string, any>();
-  private readonly TTL = 5 * 60 * 1000; // 5 minutes
-
-  async get(userId: string) {
-    const cached = this.cache.get(userId);
-    if (cached && Date.now() - cached.timestamp < this.TTL) {
-      return cached.data;
-    }
-
-    // Fetch fresh data
-    const data = await fetchUserData(userId);
-    this.cache.set(userId, { data, timestamp: Date.now() });
-    return data;
-  }
-}
-
-// Use minimal session data
-callbacks: {
-  session: async ({ session, user }) => ({
-    ...session,
-    meta: {
-      cacheKey: user.id, // Store only reference
-      roles: (await userCache.get(user.id))?.roleIds,
-    }
-  })
-}
-```
-
-### Lazy Loading User Data
-
-```typescript
-// Load detailed user data on demand
-export class UserService {
-  static async getFullUserProfile(session: Session) {
-    if (!session.user.id) return null;
-
-    // Use cache if available
-    const cached = await redis.get(`user:${session.user.id}`);
-    if (cached) return JSON.parse(cached);
-
-    // Fetch from database
-    const profile = await db.user.findUnique({
-      where: { id: session.user.id },
-      include: { roles: true, permissions: true }
-    });
-
-    // Cache for future requests
-    await redis.setex(`user:${session.user.id}`, 300, JSON.stringify(profile));
-
-    return profile;
-  }
-}
-```
-
 ## Advanced Routing Patterns
 
 ### Middleware Composition
@@ -446,56 +229,8 @@ export async function middleware(request: NextRequest) {
     return Response.redirect(loginUrl);
   }
 
-  // Role-based protection
-  if (request.nextUrl.pathname.startsWith('/admin')) {
-    const userProfile = await UserService.getFullUserProfile(session);
-
-    if (!userProfile?.roles.some(r => r.name === 'admin')) {
-      return new Response('Forbidden', { status: 403 });
-    }
-  }
+  // Do more validation here...
 }
-```
-
-### Dynamic Route Protection
-
-```typescript
-// Route-level authorization
-export function withAuth<T extends any[]>(
-  handler: (...args: T) => Promise<Response>,
-  options: {
-    requireRoles?: string[];
-    requirePermissions?: string[];
-  } = {}
-) {
-  return async (...args: T): Promise<Response> => {
-    const [request] = args;
-
-    const session = await auth.getSession(request);
-    if (!session) {
-      return Response.redirect('/api/auth/login');
-    }
-
-    // Check roles if required
-    if (options.requireRoles?.length) {
-      const userProfile = await UserService.getFullUserProfile(session);
-      const hasRole = options.requireRoles.some(role =>
-        userProfile?.roles.some(r => r.name === role)
-      );
-
-      if (!hasRole) {
-        return new Response('Insufficient permissions', { status: 403 });
-      }
-    }
-
-    return handler(...args);
-  };
-}
-
-// Usage
-export const POST = withAuth(async (request: Request) => {
-  // Handler logic
-}, { requireRoles: ['admin'] });
 ```
 
 ## Logging and Monitoring
@@ -545,152 +280,3 @@ const auth = createAdaptNext({
   logger: new ApplicationLogger(winston, Sentry),
 });
 ```
-
-### Metrics Collection
-
-```typescript
-// Collect authentication metrics
-class AuthMetrics {
-  private metrics = {
-    loginAttempts: 0,
-    successfulLogins: 0,
-    failedLogins: 0,
-    sessionCreations: 0,
-    sessionErrors: 0,
-  };
-
-  increment(metric: keyof typeof this.metrics) {
-    this.metrics[metric]++;
-
-    // Send to your metrics system
-    this.sendToDatadog(metric, 1);
-  }
-
-  getMetrics() {
-    return { ...this.metrics };
-  }
-
-  private sendToDatadog(metric: string, value: number) {
-    // Implementation depends on your metrics system
-  }
-}
-
-const metrics = new AuthMetrics();
-
-// Integrate with callbacks
-callbacks: {
-  signIn: async ({ user }) => {
-    metrics.increment('successfulLogins');
-  },
-
-  // Custom error tracking
-  error: async ({ error, context }) => {
-    if (context === 'session') {
-      metrics.increment('sessionErrors');
-    } else {
-      metrics.increment('failedLogins');
-    }
-  }
-}
-```
-
-## Testing Strategies
-
-### Mocking SAML Responses
-
-```typescript
-// Test helper for SAML responses
-export class SAMLTestHelper {
-  static createMockProfile(overrides: Partial<any> = {}) {
-    return {
-      encodedSUID: 'test123',
-      userName: 'testuser',
-      firstName: 'Test',
-      lastName: 'User',
-      affiliation: 'staff',
-      ...overrides,
-    };
-  }
-
-  static createMockSAMLResponse(profile: any) {
-    // Create valid SAML response for testing
-    // This would use a proper SAML library in practice
-  }
-}
-
-// Test authentication flow
-describe('Authentication Flow', () => {
-  it('should handle successful SAML authentication', async () => {
-    const mockProfile = SAMLTestHelper.createMockProfile();
-    const samlResponse = SAMLTestHelper.createMockSAMLResponse(mockProfile);
-
-    const result = await auth.handleCallback(
-      new Request('https://test.com/api/auth/acs', {
-        method: 'POST',
-        body: new URLSearchParams({ SAMLResponse: samlResponse }),
-      })
-    );
-
-    expect(result.status).toBe(302); // Redirect after successful auth
-  });
-});
-```
-
-### Integration Testing
-
-```typescript
-// Test with real Stanford dev environment
-describe('Stanford Integration', () => {
-  beforeAll(() => {
-    // Setup test configuration for Stanford dev environment
-  });
-
-  it('should integrate with Stanford WebAuth', async () => {
-    // Test against actual Stanford dev IdP
-    // This requires proper test credentials
-  });
-});
-```
-
-## Migration Patterns
-
-### Gradual Migration
-
-```typescript
-// Migrate from existing auth system gradually
-export class HybridAuthSystem {
-  constructor(
-    private adaptAuth: any, // ADAPT Auth SDK instance
-    private legacyAuth: any // Your existing auth system
-  ) {}
-
-  async authenticate(request: Request) {
-    // Try new system first
-    try {
-      return await this.adaptAuth.getSession(request);
-    } catch (error) {
-      // Fall back to legacy system
-      return await this.legacyAuth.getSession(request);
-    }
-  }
-
-  async migrateLegacySession(legacySession: any) {
-    // Convert legacy session to new format
-    const adaptSession = {
-      user: {
-        id: legacySession.userId,
-        email: legacySession.email,
-        name: legacySession.displayName,
-      },
-      meta: {
-        migratedFrom: 'legacy',
-        migrationDate: Date.now(),
-      }
-    };
-
-    return adaptSession;
-  }
-}
-```
-
-This advanced usage guide provides patterns for complex authentication scenarios while maintaining security and performance best practices.

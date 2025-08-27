@@ -42,20 +42,31 @@ export async function GET() {
   return await auth.login({ returnTo: '/dashboard' });
 }
 
-// app/api/auth/callback/route.ts
-import { auth } from '../../config';
+// app/api/auth/acs/route.ts
+import { NextRequest } from 'next/server';
+import { auth } from '@/utils/authInstance';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // v2 uses 'authenticate' method for handling SAML callback
   try {
-    const { user, returnTo } = await auth.authenticate(request);
-    return Response.redirect(returnTo || '/dashboard');
+    const { returnTo } = await auth.authenticate(request);
+
+    // Get the current session to access user data
+    const session = await auth.getSession();
+
+    if (session?.user) {
+      // Do something with the user.
+    }
+
+    const redirectUrl = returnTo || '/';
+    return Response.redirect(new URL(redirectUrl, request.url));
+
   } catch (error) {
-    return Response.redirect('/login?error=auth_failed');
+    return Response.redirect(new URL('/login?error=auth_failed', request.url));
   }
-}
 
 // app/api/auth/logout/route.ts
-import { auth } from '../../config';
+import { auth } from '@/utils/authInstance';
 
 export async function POST() {
   await auth.logout();
@@ -63,7 +74,7 @@ export async function POST() {
 }
 
 // app/dashboard/page.tsx
-import { auth } from '../auth/config';
+import { auth } from '@/utils/authInstance';
 import { redirect } from 'next/navigation';
 
 export default async function Dashboard() {
@@ -144,10 +155,3 @@ app.get('/dashboard', requireAuth, (req, res) => {
 
 app.listen(3000);
 ```
-
-## Next Steps
-
-- [Configure your environment](./configuration.md)
-- [Learn about security features](./security.md)
-- [Explore advanced usage patterns](./advanced-usage.md)
-- [Check the API reference](./api-reference.md)

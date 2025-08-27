@@ -16,9 +16,8 @@ npm install adapt-auth-sdk
 # .env.local
 ADAPT_AUTH_SAML_ENTITY=your-entity-id
 ADAPT_AUTH_SAML_CERT=your-certificate-string
-ADAPT_AUTH_SAML_RETURN_ORIGIN=https://your-app.com
-ADAPT_AUTH_SESSION_SECRET=your-32-character-secret-key-here-min
-ADAPT_AUTH_RELAY_STATE_SECRET=another-32-character-secret-key-min
+ADAPT_AUTH_SAML_RETURN_ORIGIN=http://localhost:3000
+ADAPT_AUTH_SESSION_SECRET=your-32-character-secret-key-min
 ```
 
 ### 3. Configuration

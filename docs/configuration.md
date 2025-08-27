@@ -20,16 +20,7 @@ ADAPT_AUTH_SESSION_SECRET="your-32-character-minimum-secret"
 
 ### Optional Variables
 
-```bash
-# SAML Configuration
-ADAPT_AUTH_SAML_SP_URL="https://adapt-sso-uat.stanford.edu/api/sso/login"
-ADAPT_AUTH_SAML_RETURN_PATH="/api/auth/callback"
-ADAPT_AUTH_SAML_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----..."
-ADAPT_AUTH_SAML_DECRYPTION_KEY="-----BEGIN PRIVATE KEY-----..."
-
-# Session Configuration
-ADAPT_AUTH_SESSION_NAME="adapt-auth"
-```
+See [environment-variables.md](./environment-variables.md) for more information on optional variables.
 
 ## Configuration Object
 
@@ -94,7 +85,7 @@ const auth = createAdaptNext({
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `issuer` | `string` | Your SAML entity ID |
+| `issuer` | `string` | Your SAML entity ID - Usually a URL |
 | `idpCert` | `string` | The IdP certificate for validating SAML responses |
 | `returnToOrigin` | `string` | The base URL of your application |
 
@@ -106,7 +97,6 @@ const auth = createAdaptNext({
 | `returnToPath` | `string` | `''` | Path component for ACS URL |
 | `includeReturnTo` | `boolean` | `true` | Include return URL in RelayState |
 | `relayStateMaxAge` | `number` | `300` | Max age for RelayState in seconds |
-| `relayStateSecret` | `string` | `undefined` | Secret for signing RelayState |
 | `wantAssertionsSigned` | `boolean` | `true` | Require signed SAML assertions |
 | `wantAuthnResponseSigned` | `boolean` | `true` | Require signed SAML responses |
 | `acceptedClockSkewMs` | `number` | `60000` | Allowed clock skew in milliseconds |
@@ -238,19 +228,10 @@ export async function handler(request: Request): Promise<Response> {
 }
 ```
 
-## Validation
-
-The SDK validates configuration at startup:
-
-- **SAML**: Ensures required fields are present
-- **Session**: Validates secret length (minimum 32 characters)
-- **Cookies**: Warns about size limits and security settings
-
 ## Best Practices
 
 1. **Use environment variables** for sensitive configuration
 2. **Set strong session secrets** (use a password manager)
-3. **Configure RelayState secrets** for additional security
-4. **Use HTTPS in production** (required for secure cookies)
-5. **Monitor cookie sizes** to prevent browser compatibility issues
-6. **Implement proper error handling** for configuration failures
+3. **Use HTTPS in production** (required for secure cookies)
+4. **Monitor cookie sizes** to prevent browser compatibility issues
+5. **Implement proper error handling** for configuration failures
