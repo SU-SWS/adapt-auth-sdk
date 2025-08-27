@@ -1,3 +1,22 @@
+/**
+ * Session management with cookie-based storage using iron-session
+ *
+ * This module provides framework-agnostic session management using encrypted cookies.
+ * Features include:
+ *
+ * - Cookie-only sessions (no server-side storage required)
+ * - iron-session encryption for secure cookie storage
+ * - Framework adapters for Express.js and Web API
+ * - Configurable cookie security settings
+ * - Session size monitoring and warnings
+ * - Client-side authentication status checking
+ *
+ * The session data is encrypted using iron-session and stored entirely in HTTP cookies,
+ * making it suitable for serverless and stateless environments.
+ *
+ * @module session
+ */
+
 import { getIronSession } from 'iron-session';
 import { Session, SessionConfig, User, Logger } from './types';
 import { AuthUtils } from './utils';
@@ -5,33 +24,130 @@ import { DefaultLogger } from './logger';
 
 /**
  * Cookie store interface for framework agnostic cookie operations
+ *
+ * Provides an abstraction layer over different framework cookie APIs.
+ * Implementations should handle the specific cookie setting/getting for their framework.
+ *
+ * @example
+ * ```typescript
+ * // Express.js implementation
+ * const store: CookieStore = {
+ *   get: (name) => req.cookies[name] ? { name, value: req.cookies[name] } : undefined,
+ *   set: (name, value, options) => res.cookie(name, value, options),
+ *   delete: (name) => res.clearCookie(name)
+ * };
+ * ```
  */
 export interface CookieStore {
+  /**
+   * Retrieve a cookie by name
+   * @param name - Cookie name to retrieve
+   * @returns Cookie object with name and value, or undefined if not found
+   */
   get: (name: string) => { name: string; value: string } | undefined;
+
+  /**
+   * Set a cookie with optional configuration
+   * @param name - Cookie name to set
+   * @param value - Cookie value
+   * @param options - Optional cookie configuration (security, expiration, etc.)
+   */
   set: (name: string, value: string, options?: CookieOptions) => void;
+
+  /**
+   * Delete a cookie by name (optional)
+   * @param name - Cookie name to delete
+   */
   delete?: (name: string) => void;
 }
 
 /**
  * Cookie options interface
+ *
+ * Defines security and behavior options for HTTP cookies.
+ * These options control cookie security, scope, and lifetime.
+ *
+ * @see {@link https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies | MDN Cookie Documentation}
  */
 export interface CookieOptions {
+  /** Prevent client-side JavaScript access to cookie (recommended: true) */
   httpOnly?: boolean;
+  /** Only send cookie over HTTPS connections (recommended: true in production) */
   secure?: boolean;
+  /** Control when cookies are sent with cross-site requests */
   sameSite?: 'lax' | 'strict' | 'none';
+  /** URL path where cookie is valid */
   path?: string;
+  /** Domain where cookie is valid */
   domain?: string;
+  /** Cookie lifetime in seconds from now */
   maxAge?: number;
+  /** Absolute expiration date */
   expires?: Date;
 }
 
 /**
  * Session manager class for handling authentication sessions
+ *
+ * Provides encrypted cookie-based session management using iron-session.
+ * Features include:
+ *
+ * - Automatic session encryption/decryption
+ * - Session expiration handling
+ * - Cookie size monitoring
+ * - Dual-cookie strategy (encrypted + JavaScript-readable)
+ * - Framework-agnostic design
+ *
+ * The dual-cookie approach creates two cookies:
+ * 1. Main encrypted cookie (HttpOnly) - contains session data
+ * 2. Boolean cookie (JavaScript accessible) - for client-side auth checks
+ *
+ * @example
+ * ```typescript
+ * // Create session manager
+ * const sessionManager = new SessionManager(
+ *   cookieStore,
+ *   {
+ *     name: 'my-session',
+ *     secret: 'your-32-character-secret-key!!'
+ *   }
+ * );
+ *
+ * // Create session
+ * await sessionManager.createSession(user);
+ *
+ * // Check authentication
+ * const isAuth = await sessionManager.isAuthenticated();
+ * ```
  */
 export class SessionManager {
   private config: Required<SessionConfig>;
   private logger: Logger;
 
+  /**
+   * Create a new session manager
+   *
+   * @param cookieStore - Framework-specific cookie store implementation
+   * @param config - Session configuration with security settings
+   * @param logger - Optional logger instance (defaults to DefaultLogger)
+   *
+   * @throws {Error} If session secret is less than 32 characters
+   *
+   * @example
+   * ```typescript
+   * const sessionManager = new SessionManager(
+   *   createWebCookieStore(request, response),
+   *   {
+   *     name: 'adapt-auth-session',
+   *     secret: process.env.SESSION_SECRET,
+   *     cookie: {
+   *       secure: true,
+   *       sameSite: 'lax'
+   *     }
+   *   }
+   * );
+   * ```
+   */
   constructor(
     private cookieStore: CookieStore,
     config: SessionConfig,
@@ -60,6 +176,20 @@ export class SessionManager {
 
   /**
    * Get session data from cookie
+   *
+   * Decrypts and retrieves session data from the encrypted cookie.
+   * Automatically handles session expiration checking.
+   *
+   * @returns Promise resolving to session data, or null if no valid session
+   *
+   * @example
+   * ```typescript
+   * const session = await sessionManager.getSession();
+   * if (session) {
+   *   console.log('User:', session.user);
+   *   console.log('Metadata:', session.meta);
+   * }
+   * ```
    */
   async getSession(): Promise<Session | null> {
     try {
@@ -99,6 +229,23 @@ export class SessionManager {
 
   /**
    * Create a new session
+   *
+   * Encrypts user data and metadata into a secure cookie.
+   * Creates both the main encrypted cookie and a JavaScript-accessible boolean cookie.
+   *
+   * @param user - User data to store in session
+   * @param meta - Optional metadata to include in session
+   * @returns Promise resolving to the created session data
+   *
+   * @throws {Error} If session creation fails
+   *
+   * @example
+   * ```typescript
+   * const session = await sessionManager.createSession(
+   *   { id: '123', email: 'user@stanford.edu' },
+   *   { theme: 'dark', lastLogin: Date.now() }
+   * );
+   * ```
    */
   async createSession(user: User, meta?: Record<string, unknown>): Promise<Session> {
     const now = Date.now();
@@ -164,6 +311,20 @@ export class SessionManager {
 
   /**
    * Update existing session
+   *
+   * Merges provided updates with existing session data.
+   * Useful for adding metadata or updating user information.
+   *
+   * @param updates - Partial session data to merge
+   * @returns Promise resolving to updated session, or null if no session exists
+   *
+   * @example
+   * ```typescript
+   * // Add metadata
+   * await sessionManager.updateSession({
+   *   meta: { lastPage: '/dashboard', preferences: {...} }
+   * });
+   * ```
    */
   async updateSession(updates: Partial<Session>): Promise<Session | null> {
     try {
@@ -213,6 +374,16 @@ export class SessionManager {
 
   /**
    * Destroy the session
+   *
+   * Removes both the encrypted session cookie and the JavaScript-accessible boolean cookie.
+   *
+   * @throws {Error} If session destruction fails
+   *
+   * @example
+   * ```typescript
+   * await sessionManager.destroySession();
+   * // User is now logged out
+   * ```
    */
   async destroySession(): Promise<void> {
     try {
@@ -256,6 +427,17 @@ export class SessionManager {
 
   /**
    * Check if session exists and is valid
+   *
+   * @returns Promise resolving to true if user is authenticated
+   *
+   * @example
+   * ```typescript
+   * if (await sessionManager.isAuthenticated()) {
+   *   // User is logged in
+   * } else {
+   *   // Redirect to login
+   * }
+   * ```
    */
   async isAuthenticated(): Promise<boolean> {
     const session = await this.getSession();
@@ -264,6 +446,16 @@ export class SessionManager {
 
   /**
    * Get user from session
+   *
+   * @returns Promise resolving to user data, or null if not authenticated
+   *
+   * @example
+   * ```typescript
+   * const user = await sessionManager.getUser();
+   * if (user) {
+   *   console.log(`Welcome ${user.name}!`);
+   * }
+   * ```
    */
   async getUser(): Promise<User | null> {
     const session = await this.getSession();
@@ -272,6 +464,17 @@ export class SessionManager {
 
   /**
    * Refresh session (sliding expiration)
+   *
+   * Updates the session's issued timestamp to extend its lifetime.
+   * Useful for implementing sliding session expiration.
+   *
+   * @returns Promise resolving to refreshed session, or null if no session
+   *
+   * @example
+   * ```typescript
+   * // Refresh session on each request
+   * await sessionManager.refreshSession();
+   * ```
    */
   async refreshSession(): Promise<Session | null> {
     const session = await this.getSession();
@@ -288,6 +491,24 @@ export class SessionManager {
 
 /**
  * Create a cookie store adapter for Express.js
+ *
+ * Adapts Express.js request/response cookie handling to the CookieStore interface.
+ *
+ * @param req - Express.js request object with cookies property
+ * @param res - Express.js response object with cookie methods
+ * @returns CookieStore implementation for Express.js
+ *
+ * @example
+ * ```typescript
+ * // In Express.js route handler
+ * app.post('/login', async (req, res) => {
+ *   const cookieStore = createExpressCookieStore(req, res);
+ *   const sessionManager = new SessionManager(cookieStore, config);
+ *
+ *   await sessionManager.createSession(user);
+ *   res.redirect('/dashboard');
+ * });
+ * ```
  */
 export function createExpressCookieStore(req: unknown, res: unknown): CookieStore {
   const request = req as { cookies?: Record<string, string> };
@@ -309,6 +530,28 @@ export function createExpressCookieStore(req: unknown, res: unknown): CookieStor
 
 /**
  * Create a cookie store adapter for Web API Request/Response
+ *
+ * Adapts Web API Request/Response objects to the CookieStore interface.
+ * Suitable for use in serverless functions, Cloudflare Workers, etc.
+ *
+ * @param request - Web API Request object
+ * @param response - Web API Response object (mutable)
+ * @returns CookieStore implementation for Web API
+ *
+ * @example
+ * ```typescript
+ * // In API route handler
+ * export async function POST(request: Request) {
+ *   const response = new Response();
+ *   const cookieStore = createWebCookieStore(request, response);
+ *   const sessionManager = new SessionManager(cookieStore, config);
+ *
+ *   await sessionManager.createSession(user);
+ *   return Response.redirect('/dashboard', {
+ *     headers: response.headers
+ *   });
+ * }
+ * ```
  */
 export function createWebCookieStore(request: Request, response: Response): CookieStore {
   const cookies = new Map<string, string>();
@@ -354,19 +597,43 @@ export function createWebCookieStore(request: Request, response: Response): Cook
 }
 
 /**
- * Client-side utility to check if user is authenticated by reading the JavaScript-accessible session cookie
- * This matches the server-side SessionManager.isAuthenticated() functionality
+ * Client-side utility to check if user is authenticated
+ *
+ * Reads the JavaScript-accessible session cookie to determine authentication status.
+ * This provides a way to check authentication from client-side code without
+ * making server requests.
+ *
+ * The function looks for a boolean cookie created by SessionManager that indicates
+ * whether a valid session exists.
  *
  * @param sessionName - The base session name (without -session suffix)
  * @returns boolean indicating if the user is authenticated
  *
  * @example
  * ```typescript
- * // Check if user is authenticated on the client
- * if (isAuthenticated('adapt-auth')) {
- *   console.log('User is authenticated');
+ * // In React component or client-side code
+ * import { isAuthenticated } from '@stanford-uat/adapt-auth-sdk';
+ *
+ * function MyComponent() {
+ *   const isLoggedIn = isAuthenticated('adapt-auth');
+ *
+ *   return (
+ *     <div>
+ *       {isLoggedIn ? (
+ *         <p>Welcome back!</p>
+ *       ) : (
+ *         <a href="/login">Please log in</a>
+ *       )}
+ *     </div>
+ *   );
  * }
  * ```
+ *
+ * @remarks
+ * - This function only works in browser environments
+ * - Returns false in server-side environments
+ * - The cookie is set automatically by SessionManager.createSession()
+ * - This is a lightweight check - full session validation requires server-side code
  */
 export function isAuthenticated(sessionName: string): boolean {
   if (typeof document === 'undefined') {

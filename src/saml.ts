@@ -1,3 +1,21 @@
+/**
+ * SAML 2.0 authentication provider for Stanford WebAuth
+ *
+ * This module provides SAML Service Provider (SP) functionality for integrating
+ * with Stanford's WebAuth Identity Provider. It handles:
+ *
+ * - SP-initiated SAML authentication flows
+ * - AuthnRequest generation with RelayState
+ * - SAML Response validation and signature verification
+ * - User profile mapping from SAML attributes
+ * - Secure returnTo URL handling
+ *
+ * The implementation uses @node-saml/node-saml for SAML protocol handling
+ * and provides Stanford-specific defaults and attribute mapping.
+ *
+ * @module saml
+ */
+
 import { SAML, SamlConfig as NodeSamlConfig } from '@node-saml/node-saml';
 import {
   SamlConfig,
@@ -15,12 +33,70 @@ import { DefaultLogger } from './logger';
 
 /**
  * SAML authentication provider for Stanford WebAuth
+ *
+ * Handles the complete SAML Service Provider flow:
+ * 1. Generate AuthnRequest and redirect to Stanford WebAuth
+ * 2. Receive and validate SAML Response from IdP
+ * 3. Map SAML attributes to user profile
+ * 4. Handle RelayState for returnTo functionality
+ *
+ * Features:
+ * - SP-initiated authentication only (IdP-initiated not supported)
+ * - RelayState-based returnTo URL handling
+ * - Configurable certificate validation
+ * - Stanford-specific attribute mapping
+ * - Comprehensive error handling and logging
+ *
+ * @example
+ * ```typescript
+ * const samlProvider = new SAMLProvider({
+ *   issuer: 'my-app-entity-id',
+ *   idpCert: process.env.ADAPT_AUTH_SAML_CERT,
+ *   returnToOrigin: 'https://myapp.com'
+ * });
+ *
+ * // Redirect to login
+ * const response = await samlProvider.login({ returnTo: '/dashboard' });
+ *
+ * // Handle callback
+ * const { user } = await samlProvider.authenticate({ req: request });
+ * ```
  */
 export class SAMLProvider {
   private provider: SAML;
   private config: Required<SamlConfig>;
   private logger: Logger;
 
+  /**
+   * Create a new SAML authentication provider
+   *
+   * Initializes the SAML provider with configuration validation and sensible defaults.
+   * Environment variables are used as fallbacks for configuration options.
+   *
+   * @param config - SAML configuration (required and optional settings)
+   * @param logger - Optional logger instance (defaults to DefaultLogger)
+   *
+   * @throws {AuthError} If required configuration is missing or invalid
+   *
+   * @example
+   * ```typescript
+   * // Minimal configuration
+   * const provider = new SAMLProvider({
+   *   issuer: 'my-app',
+   *   idpCert: certString,
+   *   returnToOrigin: 'https://myapp.com'
+   * });
+   *
+   * // With custom options
+   * const provider = new SAMLProvider({
+   *   issuer: 'my-app',
+   *   idpCert: certString,
+   *   returnToOrigin: 'https://myapp.com',
+   *   wantAssertionsSigned: true,
+   *   acceptedClockSkewMs: 30000
+   * }, customLogger);
+   * ```
+   */
   constructor(config: SamlConfig, logger?: Logger) {
     this.logger = logger || new DefaultLogger();
 
@@ -97,6 +173,15 @@ export class SAMLProvider {
     });
   }
 
+  /**
+   * Validate required SAML configuration
+   *
+   * Ensures that all required configuration fields are present and non-empty.
+   * Throws descriptive errors to help with configuration debugging.
+   *
+   * @throws {AuthError} If required configuration is missing
+   * @private
+   */
   private validateConfig(): void {
     const required = ['issuer', 'idpCert'];
     const missing = required.filter(key => {
@@ -115,6 +200,34 @@ export class SAMLProvider {
 
   /**
    * Generate login URL for SAML authentication
+   *
+   * Creates a Stanford WebAuth login URL with proper parameters:
+   * - entity: The SAML entity/issuer identifier
+   * - return_to: ACS URL where SAML response will be posted
+   * - final_destination: Where user should go after authentication
+   * - RelayState: Encrypted payload containing returnTo URL (if enabled)
+   *
+   * @param options - Login options including returnTo URL and additional parameters
+   * @returns Promise resolving to the complete login URL
+   *
+   * @example
+   * ```typescript
+   * // Basic login URL
+   * const url = await samlProvider.getLoginUrl();
+   *
+   * // With returnTo URL
+   * const url = await samlProvider.getLoginUrl({
+   *   returnTo: '/dashboard'
+   * });
+   *
+   * // With additional parameters
+   * const url = await samlProvider.getLoginUrl({
+   *   returnTo: '/admin',
+   *   forceAuthn: 'true'
+   * });
+   * ```
+   *
+   * @throws {Error} If URL generation fails
    */
   async getLoginUrl(options: LoginOptions = {}): Promise<string> {
     try {
@@ -161,6 +274,20 @@ export class SAMLProvider {
 
   /**
    * Initiate SAML login by redirecting to IdP
+   *
+   * Generates a login URL and returns a 302 redirect Response.
+   * This is a convenience method that combines getLoginUrl() with Response.redirect().
+   *
+   * @param options - Login options including returnTo URL
+   * @returns Promise resolving to a redirect Response to the IdP login page
+   *
+   * @example
+   * ```typescript
+   * // In a route handler
+   * export async function GET() {
+   *   return samlProvider.login({ returnTo: '/dashboard' });
+   * }
+   * ```
    */
   async login(options: LoginOptions = {}): Promise<Response> {
     const loginUrl = await this.getLoginUrl(options);
@@ -170,6 +297,39 @@ export class SAMLProvider {
 
   /**
    * Authenticate SAML response from IdP
+   *
+   * Validates and processes the SAML response received at the ACS endpoint:
+   * 1. Extracts SAMLResponse from POST body
+   * 2. Validates SAML signatures and assertions
+   * 3. Processes RelayState for returnTo URL
+   * 4. Maps SAML attributes to User object
+   * 5. Calls authentication callbacks
+   *
+   * @param options - Authentication options with request and callbacks
+   * @returns Promise resolving to authenticated user, profile, and returnTo URL
+   *
+   * @throws {AuthError} If authentication fails or SAML response is invalid
+   *
+   * @example
+   * ```typescript
+   * // In ACS route handler
+   * export async function POST(request: Request) {
+   *   const { user, profile, returnTo } = await samlProvider.authenticate({
+   *     req: request,
+   *     callbacks: {
+   *       mapProfile: (profile) => ({
+   *         id: profile.encodedSUID,
+   *         email: `${profile.userName}@stanford.edu`,
+   *         name: `${profile.firstName} ${profile.lastName}`
+   *       })
+   *     }
+   *   });
+   *
+   *   // Create session and redirect
+   *   await sessionManager.createSession(user);
+   *   return Response.redirect(returnTo || '/dashboard');
+   * }
+   * ```
    */
   async authenticate(options: AuthenticateOptions): Promise<{
     user: User;
@@ -267,6 +427,18 @@ export class SAMLProvider {
 
   /**
    * Process RelayState to extract returnTo URL
+   *
+   * Parses and validates the RelayState parameter from SAML response:
+   * 1. Decodes JSON payload from RelayState
+   * 2. Extracts return_to URL
+   * 3. Sanitizes URL against allowed origins
+   * 4. Returns safe URL or fallback
+   *
+   * @param relayState - RelayState parameter from SAML response
+   * @returns Promise resolving to sanitized returnTo URL or undefined
+   *
+   * @private
+   * @security URLs are validated against allowed origins to prevent open redirects
    */
   private async processRelayState(relayState: string): Promise<string | undefined> {
     // Parse RelayState as simple JSON
@@ -305,6 +477,27 @@ export class SAMLProvider {
 
   /**
    * Default mapping from SAML profile to User
+   *
+   * Maps Stanford WebAuth SAML attributes to a standardized User object:
+   * - encodedSUID -> user.id (primary identifier)
+   * - userName -> email domain (@stanford.edu)
+   * - firstName + lastName -> display name
+   * - Preserves additional Stanford-specific attributes
+   *
+   * @param profile - SAML profile with Stanford attributes
+   * @returns User object with mapped attributes
+   *
+   * @example
+   * ```typescript
+   * // Stanford SAML attributes typically include:
+   * // - encodedSUID: Unique Stanford ID
+   * // - userName: SUNet ID
+   * // - firstName: Given name
+   * // - lastName: Family name
+   * // - suid: Numeric Stanford ID
+   * ```
+   *
+   * @private
    */
   private defaultMapProfile(profile: SAMLProfile): User {
     // Extract user information from Stanford SAML attributes
@@ -327,6 +520,24 @@ export class SAMLProvider {
 
   /**
    * Get SAML provider configuration (for debugging)
+   *
+   * Returns configuration object with sensitive data removed.
+   * Useful for debugging configuration issues without exposing secrets.
+   *
+   * @returns Configuration object with sensitive fields replaced by boolean flags
+   *
+   * @example
+   * ```typescript
+   * const config = samlProvider.getConfig();
+   * console.log(config);
+   * // {
+   * //   issuer: 'my-app',
+   * //   audience: 'https://my-app.stanford.edu',
+   * //   hasPrivateKey: true,
+   * //   hasCert: true,
+   * //   ...
+   * // }
+   * ```
    */
   getConfig(): Record<string, unknown> {
     // Return config without sensitive data
@@ -342,6 +553,26 @@ export class SAMLProvider {
 
 /**
  * Create and configure a default SAML provider instance
+ *
+ * Factory function that creates a SAMLProvider with environment variable fallbacks
+ * and sensible defaults for Stanford WebAuth integration.
+ *
+ * @param config - Optional SAML configuration (uses environment variables as fallbacks)
+ * @param logger - Optional logger instance
+ * @returns Configured SAMLProvider instance
+ *
+ * @example
+ * ```typescript
+ * // Uses environment variables for configuration
+ * const provider = createSAMLProvider();
+ *
+ * // With partial override
+ * const provider = createSAMLProvider({
+ *   returnToOrigin: 'https://myapp.com'
+ * });
+ * ```
+ *
+ * @throws {AuthError} If required environment variables are missing
  */
 export function createSAMLProvider(config?: Partial<SamlConfig>, logger?: Logger): SAMLProvider {
   const defaultConfig = {
