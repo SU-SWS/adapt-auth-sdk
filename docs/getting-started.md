@@ -12,7 +12,7 @@ npm install adapt-auth-sdk
 
 - Node.js 18 or higher
 - TypeScript 5.x (recommended)
-- A Stanford WebAuth SAML entity and certificate
+- A SAML entity and certificate
 
 ## Quick Start
 

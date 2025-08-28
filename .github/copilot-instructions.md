@@ -1,4 +1,4 @@
-# ADAPT Webauth SDK
+# ADAPT Auth SDK
 github: su-sws/adapt-auth-sdk
 
 

@@ -1,8 +1,8 @@
 /**
- * SAML 2.0 authentication provider for Stanford WebAuth
+ * SAML 2.0 authentication provider for Stanford Pass
  *
  * This module provides SAML Service Provider (SP) functionality for integrating
- * with Stanford's WebAuth Identity Provider. It handles:
+ * with Stanford Pass' Identity Provider. It handles:
  *
  * - SP-initiated SAML authentication flows
  * - AuthnRequest generation with RelayState
@@ -32,10 +32,10 @@ import { AuthUtils } from './utils';
 import { DefaultLogger } from './logger';
 
 /**
- * SAML authentication provider for Stanford WebAuth
+ * SAML authentication provider for Stanford Pass
  *
  * Handles the complete SAML Service Provider flow:
- * 1. Generate AuthnRequest and redirect to Stanford WebAuth
+ * 1. Generate AuthnRequest and redirect to Stanford Pass
  * 2. Receive and validate SAML Response from IdP
  * 3. Map SAML attributes to user profile
  * 4. Handle RelayState for returnTo functionality
@@ -201,7 +201,7 @@ export class SAMLProvider {
   /**
    * Generate login URL for SAML authentication
    *
-   * Creates a Stanford WebAuth login URL with proper parameters:
+   * Creates a Stanford Pass login URL with proper parameters:
    * - entity: The SAML entity/issuer identifier
    * - return_to: ACS URL where SAML response will be posted
    * - final_destination: Where user should go after authentication
@@ -478,7 +478,7 @@ export class SAMLProvider {
   /**
    * Default mapping from SAML profile to User
    *
-   * Maps Stanford WebAuth SAML attributes to a standardized User object:
+   * Maps Stanford Pass SAML attributes to a standardized User object:
    * - encodedSUID -> user.id (primary identifier)
    * - userName -> email domain (@stanford.edu)
    * - firstName + lastName -> display name
@@ -507,7 +507,6 @@ export class SAMLProvider {
       id: attributes.encodedSUID || profile.nameID || '',
       email: `${attributes.userName || profile.nameID}@stanford.edu`,
       name: [attributes.firstName, attributes.lastName].filter(Boolean).join(' ') || attributes.userName || profile.nameID || '',
-      imageUrl: undefined,
       // Include additional Stanford-specific attributes
       suid: attributes.suid,
       encodedSUID: attributes.encodedSUID,
@@ -555,7 +554,7 @@ export class SAMLProvider {
  * Create and configure a default SAML provider instance
  *
  * Factory function that creates a SAMLProvider with environment variable fallbacks
- * and sensible defaults for Stanford WebAuth integration.
+ * and sensible defaults for Stanford Pass integration.
  *
  * @param config - Optional SAML configuration (uses environment variables as fallbacks)
  * @param logger - Optional logger instance

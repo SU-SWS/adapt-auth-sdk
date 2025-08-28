@@ -375,7 +375,6 @@ export class EdgeSessionReader {
    *
    * @param cookieValue - Encrypted cookie value
    * @returns Promise resolving to decrypted session data or null if invalid
-   * @private
    */
   async decryptSession(cookieValue: string): Promise<Session | null> {
     try {

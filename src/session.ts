@@ -1,3 +1,4 @@
+import { IronCookieStore } from './types';
 /**
  * Session management with cookie-based storage using iron-session
  *
@@ -204,8 +205,12 @@ export class SessionManager {
         set: this.cookieStore.set,
       };
 
+      // Cast our simple CookieStore adapter to the shape expected by
+      // `getIronSession`. Using `as unknown as IronCookieStore
+      // avoids the overly-broad `as never` assertion while keeping runtime
+      // behavior unchanged.
       const session = await getIronSession<Session>(
-        ironStore as never,
+        ironStore as unknown as IronCookieStore,
         {
           cookieName: this.config.name,
           password: this.config.secret,
@@ -266,7 +271,7 @@ export class SessionManager {
       };
 
       const session = await getIronSession<Session>(
-        ironStore as never,
+        ironStore as unknown as IronCookieStore,
         {
           cookieName: mainCookieName,
           password: this.config.secret,
@@ -344,7 +349,7 @@ export class SessionManager {
       };
 
       const session = await getIronSession<Session>(
-        ironStore as never,
+        ironStore as unknown as IronCookieStore,
         {
           cookieName: this.config.name,
           password: this.config.secret,
@@ -396,7 +401,7 @@ export class SessionManager {
       };
 
       const session = await getIronSession<Session>(
-        ironStore as never,
+        ironStore as unknown as IronCookieStore,
         {
           cookieName: mainCookieName,
           password: this.config.secret,

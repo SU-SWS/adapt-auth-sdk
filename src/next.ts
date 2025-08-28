@@ -323,8 +323,7 @@ export class AdaptNext {
   /**
    * Check for browser environment and throw error if detected
    *
-   * AdaptNext is designed for server-side use only. This method prevents
-   * accidental usage in browser environments where it would fail.
+   * This method prevents accidental usage in browser environments where it would fail.
    *
    * @param methodName - Name of the method being called (for error message)
    * @throws {Error} If called in browser environment
@@ -357,7 +356,7 @@ export class AdaptNext {
   /**
    * Initiate SAML login
    *
-   * Redirects user to Stanford WebAuth for authentication.
+   * Redirects user to Auth Middleware (ADAPT-SSO) for authentication.
    *
    * @param options - Login options including returnTo URL
    * @returns Promise resolving to redirect Response to IdP login page
@@ -378,7 +377,7 @@ export class AdaptNext {
   /**
    * Handle SAML authentication callback (ACS endpoint)
    *
-   * Processes the SAML response from Stanford WebAuth and creates a session.
+   * Processes the SAML response from the IDP and creates a session.
    *
    * @param request - HTTP Request containing SAML response
    * @returns Promise resolving to authenticated user, session, and returnTo URL
@@ -555,7 +554,7 @@ export class AdaptNext {
   /**
    * Create login URL without redirecting
    *
-   * Generates the Stanford WebAuth login URL for custom redirect handling.
+   * Generates the login URL for custom redirect handling.
    *
    * @param options - Login options including returnTo URL
    * @returns Promise resolving to the complete login URL

@@ -294,7 +294,8 @@ export class AuthUtils {
     const padded = encoded + '==='.slice(0, (4 - encoded.length % 4) % 4);
     const base64 = padded.replace(/-/g, '+').replace(/_/g, '/');
 
-    // Decode base64 to binary string using atob, then convert to bytes and decode with TextDecoder for proper Unicode handling (edge compatible)
+    // Use native atob with proper Unicode handling for edge function compatibility
+    // Use TextDecoder for proper Unicode handling and edge function compatibility
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {

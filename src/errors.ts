@@ -135,7 +135,7 @@ export class ConfigError extends AuthError {
  * @example
  * ```typescript
  * throw new NetworkError(
- *   'Failed to connect to Stanford WebAuth IdP',
+ *   'Failed to connect to IdP',
  *   'saml_login',
  *   originalError,
  *   503

@@ -237,6 +237,21 @@ export interface OptionalSessionConfig {
  */
 export type SessionConfig = RequiredSessionConfig & OptionalSessionConfig;
 
+// Types mirroring the cookie-store shape accepted by `iron-session`'s
+// getIronSession(cookies, options) overload. We keep a minimal local
+// representation here so other modules can safely cast their adapters.
+// See: node_modules/iron-session/dist/index.d.ts for the authoritative
+// declaration (CookieStore / ResponseCookie types).
+export type IronCookieSet = {
+  (name: string, value: string, cookie?: Partial<Record<string, unknown>>): void;
+  (options: { name: string; value: string; httpOnly?: boolean; maxAge?: number; domain?: string; path?: string; sameSite?: 'lax' | 'strict' | 'none'; secure?: boolean; expires?: Date; priority?: string }): void;
+};
+
+export interface IronCookieStore {
+  get: (name: string) => { name: string; value: string } | undefined;
+  set: IronCookieSet;
+}
+
 /**
  * Required authentication configuration (minimal fields developers must provide)
  */

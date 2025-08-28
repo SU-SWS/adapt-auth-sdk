@@ -58,7 +58,7 @@ export { AdaptNext, createAdaptNext } from './next';
  * These are the primary building blocks for most authentication implementations
  */
 
-/** SAML authentication provider for Stanford WebAuth */
+/** SAML authentication provider for Oracle IDCS SAML */
 export { SAMLProvider, createSAMLProvider } from './saml';
 
 /** Session management with cookie-based storage */
