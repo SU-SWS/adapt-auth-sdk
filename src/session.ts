@@ -162,6 +162,9 @@ export class SessionManager {
         secure: true,
         sameSite: 'lax' as const,
         path: '/',
+        maxAge: process.env.ADAPT_AUTH_SESSION_EXPIRES_IN
+          ? parseInt(process.env.ADAPT_AUTH_SESSION_EXPIRES_IN, 10)
+          : 0, // Default to browser-session cookie
         ...config.cookie,
       },
       cookieSizeThreshold: config.cookieSizeThreshold || 3500,

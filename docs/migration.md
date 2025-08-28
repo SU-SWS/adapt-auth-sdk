@@ -74,6 +74,8 @@ This section provides a detailed mapping of environment variables from v1.x to v
 | `ADAPT_AUTH_SAML_CERT` | `ADAPT_AUTH_SAML_CERT` | ✅ **Same** | IdP certificate (required) |
 | `ADAPT_AUTH_SESSION_SECRET` | `ADAPT_AUTH_SESSION_SECRET` | ✅ **Same** | Session encryption secret (required) |
 | `ADAPT_AUTH_SAML_RETURN_ORIGIN` | `ADAPT_AUTH_SAML_RETURN_ORIGIN` | ✅ **Same** | Application base URL (required) |
+| `ADAPT_AUTH_SESSION_EXPIRES_IN` | `ADAPT_AUTH_SESSION_EXPIRES_IN` | ✅ **Same** | Sessions default to expire when browser closes |
+
 
 ### Optional Variables (Still Supported)
 
@@ -89,7 +91,6 @@ This section provides a detailed mapping of environment variables from v1.x to v
 | v1.x Variable | v2.0 Equivalent | Status | Migration Notes |
 |---------------|-----------------|--------|-----------------|
 | `ADAPT_AUTH_SAML_RETURN_URL` | *Not used* | ❌ **Removed** | Use `ADAPT_AUTH_SAML_RETURN_ORIGIN` + `ADAPT_AUTH_SAML_RETURN_PATH` |
-| `ADAPT_AUTH_SESSION_EXPIRES_IN` | *Not configurable* | ❌ **Removed** | Sessions now expire when browser closes |
 | `ADAPT_AUTH_SESSION_LOGOUT_URL` | *Application logic* | ❌ **Removed** | Handle logout redirects in your app |
 | `ADAPT_AUTH_SESSION_UNAUTHORIZED_URL` | *Application logic* | ❌ **Removed** | Handle unauthorized redirects in your app |
 
@@ -110,19 +111,7 @@ const session = await auth.getSession(request);
 const user = session?.user;
 ```
 
-
-
-
 ### Handling Removed Functionality
-
-**Session Expiration (`ADAPT_AUTH_SESSION_EXPIRES_IN`)**
-```typescript
-// v1.x: Configurable session expiration
-ADAPT_AUTH_SESSION_EXPIRES_IN="24h"
-
-// v2.0: Sessions expire when browser closes
-// No configuration needed - this is now the default behavior
-```
 
 **Logout URL (`ADAPT_AUTH_SESSION_LOGOUT_URL`)**
 ```typescript
