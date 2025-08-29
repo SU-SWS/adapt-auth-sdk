@@ -347,8 +347,10 @@ export class AdaptNext {
   private async getSessionManager(): Promise<SessionManager> {
     try {
       // Dynamic import to avoid issues with Next.js server components
+      // Use variable to prevent bundlers from trying to resolve the path
+      const nextHeadersPath = 'next/headers';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { cookies } = await import('next/headers' as any);
+      const { cookies } = await import(nextHeadersPath as any);
       const cookieStore = createNextjsCookieStore(await cookies());
 
       // Create new instance each time since cookies() must be called fresh in Next.js

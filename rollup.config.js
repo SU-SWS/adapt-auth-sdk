@@ -28,10 +28,19 @@ const input = {
   ...Object.fromEntries(sourceFiles.map(name => [name, `src/${name}.ts`]))
 };
 
+// Custom external function that handles dynamic imports
+const isExternal = (id) => {
+  // Handle dynamic imports of external packages
+  if (external.some(ext => id === ext || id.startsWith(ext + '/'))) {
+    return true;
+  }
+  return false;
+};
+
 // ESM Build Configuration
 const esmConfig = {
   input,
-  external,
+  external: isExternal,
   output: {
     dir: 'dist/esm',
     format: 'es',
@@ -74,7 +83,7 @@ const esmConfig = {
 // CommonJS Build Configuration
 const cjsConfig = {
   input,
-  external,
+  external: isExternal,
   output: {
     dir: 'dist/cjs',
     format: 'cjs',
