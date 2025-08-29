@@ -495,6 +495,108 @@ export class SessionManager {
       issuedAt: Date.now(),
     });
   }
+
+  /**
+   * Create a sealed (encrypted) cookie value
+   *
+   * This static utility function creates an encrypted cookie value containing session data
+   * without setting any HTTP headers. This is useful for testing scenarios where you need
+   * the actual encrypted cookie string to simulate authenticated requests or for when
+   * you want to manually set the cookie in a different context.
+   *
+   * The returned string is what would normally be stored in the HTTP cookie, encrypted
+   * using iron-session's encryption algorithm.
+   *
+   * @param sessionData - The session data to encrypt
+   * @param config - Session configuration with name, secret, and cookie options
+   * @returns Promise resolving to the encrypted cookie value string
+   *
+   * @example
+   * ```typescript
+   * // Create test session data
+   * const sessionData: Session = {
+   *   user: { id: 'user123', email: 'test@stanford.edu' },
+   *   meta: { role: 'admin' },
+   *   issuedAt: Date.now(),
+   *   expiresAt: 0
+   * };
+   *
+   * // Generate encrypted cookie value for testing
+   * const sealedCookie = await SessionManager.sealSession(sessionData, {
+   *   name: 'test-session',
+   *   secret: 'your-32-character-secret-key!!'
+   * });
+   *
+   * // Use in test requests
+   * const response = await fetch('/api/protected', {
+   *   headers: {
+   *     'Cookie': `test-session=${sealedCookie}`
+   *   }
+   * });
+   * ```
+   *
+   * @throws {Error} If session secret is less than 32 characters or encryption fails
+   */
+  static async sealSession(sessionData: Session, config: SessionConfig): Promise<string> {
+    // Validate secret length
+    if (config.secret.length < 32) {
+      throw new Error('Session secret must be at least 32 characters long');
+    }
+
+    // Create a mock cookie store that captures the set cookie value
+    let sealedValue = '';
+    const mockCookieStore: CookieStore = {
+      get: () => undefined,
+      set: (name: string, value: string) => {
+        if (name === config.name) {
+          sealedValue = value;
+        }
+      }
+    };
+
+    try {
+      // Create temporary iron-session store
+      const ironStore = {
+        get: mockCookieStore.get,
+        set: mockCookieStore.set,
+      };
+
+      const sessionConfig = {
+        name: config.name,
+        secret: config.secret,
+        cookie: {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'lax' as const,
+          path: '/',
+          maxAge: 0,
+          ...config.cookie,
+        }
+      };
+
+      // Get iron session and save the data
+      const session = await getIronSession<Session>(
+        ironStore as unknown as IronCookieStore,
+        {
+          cookieName: sessionConfig.name,
+          password: sessionConfig.secret,
+          cookieOptions: sessionConfig.cookie,
+        }
+      );
+
+      // Set session data
+      Object.assign(session, sessionData);
+      await session.save();
+
+      if (!sealedValue) {
+        throw new Error('Failed to generate sealed cookie value');
+      }
+
+      return sealedValue;
+    } catch (error) {
+      throw new Error(`Failed to seal session: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 }
 
 /**

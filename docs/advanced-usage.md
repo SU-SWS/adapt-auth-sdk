@@ -95,6 +95,53 @@ export async function updateSessionSafely(request: Request, updates: Partial<Ses
 }
 ```
 
+### Testing with Sealed Sessions
+
+For testing purposes, you can create encrypted cookie values without setting HTTP headers using the `SessionManager.sealSession` static method:
+
+```typescript
+import { SessionManager, Session, User } from 'adapt-auth-sdk';
+
+// Create test session data
+const testUser: User = {
+  id: 'test-user-123',
+  email: 'test@stanford.edu',
+  name: 'Test User'
+};
+
+const testSession: Session = {
+  user: testUser,
+  meta: { roles: ['admin'], theme: 'dark' },
+  issuedAt: Date.now(),
+  expiresAt: 0 // Session cookie
+};
+
+const sessionConfig = {
+  name: 'auth-session',
+  secret: 'your-32-character-secret-key!!',
+  cookie: {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax' as const
+  }
+};
+
+// Generate encrypted cookie value for testing
+const sealedCookie = await SessionManager.sealSession(testSession, sessionConfig);
+
+// Use in test requests
+const response = await fetch('/api/protected-route', {
+  headers: {
+    'Cookie': `auth-session=${sealedCookie}`
+  }
+});
+```
+
+This is particularly useful for:
+- **Unit Testing**: Creating authenticated test requests
+- **Integration Testing**: Simulating different user roles and permissions
+- **End-to-End Testing**: Setting up test scenarios with pre-authenticated users
+
 ### Custom Cookie Stores
 
 Implement custom cookie storage for specialized frameworks:
