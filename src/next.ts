@@ -349,14 +349,62 @@ export class AdaptNext {
       // Dynamic import to avoid issues with Next.js server components
       // Use variable to prevent bundlers from trying to resolve the path
       const nextHeadersPath = 'next/headers';
+
+      this.logger.debug('Attempting to import next/headers', {
+        nextHeadersPath,
+        nodeEnv: process.env.NODE_ENV,
+        runtime: typeof globalThis !== 'undefined' ? 'edge' : 'nodejs'
+      });
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { cookies } = await import(nextHeadersPath as any);
-      const cookieStore = createNextjsCookieStore(await cookies());
+      const nextHeaders = await import(nextHeadersPath as any);
+
+      this.logger.debug('Successfully imported next/headers', {
+        hasHeaders: !!nextHeaders,
+        hasCookies: !!(nextHeaders as any).cookies,
+        exports: Object.keys(nextHeaders)
+      });
+
+      const { cookies } = nextHeaders as any;
+
+      // In Next.js 15+, cookies() returns a Promise and must be awaited
+      // In Next.js 14-, cookies() returns the cookie store directly
+      // We'll try the async version first (Next.js 15+), then fall back to sync (Next.js 14-)
+      this.logger.debug('Calling cookies() function');
+      let cookiesResult;
+
+      const cookiesCall = cookies();
+
+      // Check if it's a Promise (Next.js 15+) or direct result (Next.js 14-)
+      if (cookiesCall && typeof cookiesCall.then === 'function') {
+        this.logger.debug('cookies() returned a Promise (Next.js 15+), awaiting...');
+        cookiesResult = await cookiesCall;
+      } else {
+        this.logger.debug('cookies() returned directly (Next.js 14-)');
+        cookiesResult = cookiesCall;
+      }
+
+      const cookieStore = createNextjsCookieStore(cookiesResult);
 
       // Create new instance each time since cookies() must be called fresh in Next.js
       return new SessionManager(cookieStore, this.sessionConfig, this.logger);
-    } catch {
-      throw new Error('Next.js headers module not available. Make sure you are running in a Next.js environment with version 14 or higher.');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorCode = (error as NodeJS.ErrnoException)?.code || 'unknown';
+
+      this.logger.error('Failed to import or use next/headers', {
+        error: errorMessage,
+        code: errorCode,
+        nodeEnv: process.env.NODE_ENV,
+        platform: process.platform,
+        nodeVersion: process.version,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+
+      throw new Error(
+        `Next.js headers module not available. Original error: ${errorMessage} (${errorCode}). ` +
+        `Make sure you are running in a Next.js 14+ environment and the module is properly installed.`
+      );
     }
   }
 
