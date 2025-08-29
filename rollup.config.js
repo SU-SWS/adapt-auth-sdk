@@ -12,7 +12,8 @@ const external = [
   'node:crypto',
   'node:util',
   'url',
-  'crypto'
+  'crypto',
+  'next/headers' // Treat Next.js headers as external dependency
 ];
 
 // Get all source files for individual exports
