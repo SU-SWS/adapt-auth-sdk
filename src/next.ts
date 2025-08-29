@@ -19,8 +19,8 @@
  * @module next
  */
 
-import { SAMLProvider } from './saml';
-import { SessionManager, CookieStore, CookieOptions } from './session';
+import { SAMLProvider } from './saml.js';
+import { SessionManager, CookieStore, CookieOptions } from './session.js';
 import {
   RequiredSamlConfig,
   OptionalSamlConfig,
@@ -34,8 +34,8 @@ import {
   Logger,
   AuthContext,
   RouteHandler
-} from './types';
-import { DefaultLogger } from './logger';
+} from './types.js';
+import { DefaultLogger } from './logger.js';
 
 /**
  * Create a cookie store adapter for Next.js
@@ -96,7 +96,7 @@ export async function getSessionFromNextRequest(
   secret?: string,
   cookieName?: string
 ): Promise<Session | null> {
-  const { createEdgeSessionReader } = await import('./edge-session');
+  const { createEdgeSessionReader } = await import('./edge-session.js');
   const reader = createEdgeSessionReader(secret, cookieName);
   return reader.getSessionFromRequest(request);
 }
@@ -154,7 +154,7 @@ export async function getSessionFromNextCookies(
   }
 
   // Import and use EdgeSessionReader for decryption
-  const { EdgeSessionReader } = await import('./edge-session');
+  const { EdgeSessionReader } = await import('./edge-session.js');
   const reader = new EdgeSessionReader(sessionSecret, sessionName);
 
   // Use the public decryptSession method directly
@@ -345,12 +345,17 @@ export class AdaptNext {
    * @private
    */
   private async getSessionManager(): Promise<SessionManager> {
-    // Dynamic import to avoid issues with Next.js server components
-    const { cookies } = await import('next/headers');
-    const cookieStore = createNextjsCookieStore(await cookies());
+    try {
+      // Dynamic import to avoid issues with Next.js server components
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { cookies } = await import('next/headers' as any);
+      const cookieStore = createNextjsCookieStore(await cookies());
 
-    // Create new instance each time since cookies() must be called fresh in Next.js
-    return new SessionManager(cookieStore, this.sessionConfig, this.logger);
+      // Create new instance each time since cookies() must be called fresh in Next.js
+      return new SessionManager(cookieStore, this.sessionConfig, this.logger);
+    } catch {
+      throw new Error('Next.js headers module not available. Make sure you are running in a Next.js environment with version 14 or higher.');
+    }
   }
 
   /**

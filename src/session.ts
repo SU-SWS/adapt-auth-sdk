@@ -1,4 +1,3 @@
-import { IronCookieStore } from './types';
 /**
  * Session management with cookie-based storage using iron-session
  *
@@ -19,9 +18,10 @@ import { IronCookieStore } from './types';
  */
 
 import { getIronSession } from 'iron-session';
-import { Session, SessionConfig, User, Logger } from './types';
-import { AuthUtils } from './utils';
-import { DefaultLogger } from './logger';
+import { Session, SessionConfig, User, Logger } from './types.js';
+import { AuthUtils } from './utils.js';
+import { DefaultLogger } from './logger.js';
+import { IronCookieStore } from './types.js';
 
 /**
  * Cookie store interface for framework agnostic cookie operations

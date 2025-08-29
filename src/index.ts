@@ -38,20 +38,20 @@
  */
 
 // Export all type definitions
-export * from './types';
+export * from './types.js';
 
 // Export core authentication classes
-export * from './saml';
-export * from './session';
-export * from './edge-session';
-export * from './logger';
-export * from './utils';
+export * from './saml.js';
+export * from './session.js';
+export * from './edge-session.js';
+export * from './logger.js';
+export * from './utils.js';
 
 /**
  * Next.js-specific integration classes and utilities
  * Import specific exports to avoid name conflicts
  */
-export { AdaptNext, createAdaptNext } from './next';
+export { AdaptNext, createAdaptNext } from './next.js';
 
 /**
  * Re-export commonly used classes and functions for convenience
@@ -59,16 +59,16 @@ export { AdaptNext, createAdaptNext } from './next';
  */
 
 /** SAML authentication provider for Oracle IDCS SAML */
-export { SAMLProvider, createSAMLProvider } from './saml';
+export { SAMLProvider, createSAMLProvider } from './saml.js';
 
 /** Session management with cookie-based storage */
-export { SessionManager, createExpressCookieStore, createWebCookieStore } from './session';
+export { SessionManager, createExpressCookieStore, createWebCookieStore } from './session.js';
 
 /** Edge-compatible session reading for Netlify/Vercel functions */
-export { EdgeSessionReader, EdgeCookieParser, createEdgeSessionReader, getUserIdFromRequest, getUserIdFromCookie } from './edge-session';
+export { EdgeSessionReader, EdgeCookieParser, createEdgeSessionReader, getUserIdFromRequest, getUserIdFromCookie } from './edge-session.js';
 
 /** Structured logging implementations with security redaction */
-export { DefaultLogger, ConsoleLogger, SilentLogger } from './logger';
+export { DefaultLogger, ConsoleLogger, SilentLogger } from './logger.js';
 
 /** Authentication utility functions and helpers */
-export { AuthUtils } from './utils';
+export { AuthUtils } from './utils.js';

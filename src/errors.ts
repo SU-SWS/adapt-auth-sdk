@@ -7,7 +7,7 @@
  * @module errors
  */
 
-import { AuthError } from './types';
+import { AuthError } from './types.js';
 
 /**
  * SAML-specific error for authentication failures

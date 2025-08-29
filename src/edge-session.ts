@@ -17,7 +17,10 @@
  * @module edge-session
  */
 
-import { Session, User } from './types';
+import {
+  Session,
+  User
+} from './types.js';
 import { unsealData } from 'iron-session';
 
 /**

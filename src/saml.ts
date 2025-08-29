@@ -27,9 +27,9 @@ import {
   Logger,
   RelayStatePayload,
   AuthError,
-} from './types';
-import { AuthUtils } from './utils';
-import { DefaultLogger } from './logger';
+} from './types.js';
+import { AuthUtils } from './utils.js';
+import { DefaultLogger } from './logger.js';
 
 /**
  * SAML authentication provider for Stanford Pass

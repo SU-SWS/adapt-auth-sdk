@@ -11,7 +11,7 @@
  * @module logger
  */
 
-import { Logger } from './types';
+import { Logger } from './types.js';
 
 /**
  * Default logger implementation with structured logging and redaction
