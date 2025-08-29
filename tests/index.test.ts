@@ -51,14 +51,13 @@ describe('ADAPT Auth SDK exports', () => {
     });
   });
 
-  describe('Next.js exports', () => {
-    it('should export AdaptNext class', () => {
-      expect(typeof adaptAuth.AdaptNext).toBe('function');
-      expect(adaptAuth.AdaptNext.prototype.constructor).toBe(adaptAuth.AdaptNext);
+  describe('Next.js exports (removed in v2.0.0)', () => {
+    it('should NOT export AdaptNext from main index (now in separate module)', () => {
+      expect((adaptAuth as unknown as Record<string, unknown>).AdaptNext).toBeUndefined();
     });
 
-    it('should export createAdaptNext function', () => {
-      expect(typeof adaptAuth.createAdaptNext).toBe('function');
+    it('should NOT export createAdaptNext from main index (now in separate module)', () => {
+      expect((adaptAuth as unknown as Record<string, unknown>).createAdaptNext).toBeUndefined();
     });
   });
 
@@ -128,17 +127,15 @@ describe('ADAPT Auth SDK exports', () => {
         'createEdgeSessionReader',
         'getUserIdFromRequest',
         'getUserIdFromCookie',
-        // Next.js
-        'AdaptNext',
-        'createAdaptNext',
         // Logger
         'DefaultLogger',
         'ConsoleLogger',
         'SilentLogger',
-                // Utils
+        // Utils
         'AuthUtils',
         // Errors
         'AuthError'
+        // Note: Next.js exports (AdaptNext, createAdaptNext) are now in separate module
       ];
 
       expectedExports.forEach(exportName => {
@@ -160,7 +157,7 @@ describe('ADAPT Auth SDK exports', () => {
       expect(adaptAuth.createExpressCookieStore).toBeDefined();
       expect(adaptAuth.createWebCookieStore).toBeDefined();
       expect(adaptAuth.createEdgeSessionReader).toBeDefined();
-      expect(adaptAuth.createAdaptNext).toBeDefined();
+      // Note: createAdaptNext is now in separate Next.js module
     });
   });
 });

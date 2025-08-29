@@ -24,7 +24,7 @@ ADAPT_AUTH_SESSION_SECRET=your-32-character-secret-key-min
 
 ```typescript
 // lib/auth.ts
-import { createAdaptNext } from 'adapt-auth-sdk';
+import { createAdaptNext } from 'adapt-auth-sdk/next';
 
 export const auth = createAdaptNext({
   saml: {

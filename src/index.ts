@@ -49,9 +49,14 @@ export * from './utils.js';
 
 /**
  * Next.js-specific integration classes and utilities
- * Import specific exports to avoid name conflicts
+ *
+ * NOTE: Next.js integration is now available as a separate import:
+ * import { AdaptNext, createAdaptNext } from 'adapt-auth-sdk/next'
+ *
+ * This prevents the core package from depending on Next.js and avoids
+ * bundling issues in non-Next.js environments.
  */
-export { AdaptNext, createAdaptNext } from './next.js';
+// export { AdaptNext, createAdaptNext } from './next.js'; // Removed from default exports
 
 /**
  * Re-export commonly used classes and functions for convenience

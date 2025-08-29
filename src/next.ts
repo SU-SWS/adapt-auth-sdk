@@ -19,6 +19,7 @@
  * @module next
  */
 
+import { cookies } from 'next/headers';
 import { SAMLProvider } from './saml.js';
 import { SessionManager, CookieStore, CookieOptions } from './session.js';
 import {
@@ -336,74 +337,47 @@ export class AdaptNext {
   }
 
   /**
-   * Get or create session manager with Next.js cookies (cached)
+   * Get or create session manager with Next.js cookies
    *
-   * Dynamically imports Next.js cookies to avoid issues with Server Components.
-   * Creates a fresh SessionManager instance for each call.
+   * Uses the directly imported Next.js cookies function to create a SessionManager.
+   * Works with both Next.js 14 (sync) and Next.js 15+ (async) cookie APIs.
    *
    * @returns Promise resolving to configured SessionManager
    * @private
    */
   private async getSessionManager(): Promise<SessionManager> {
+    this.logger.debug('Creating session manager with Next.js cookies');
+
     try {
-      // Dynamic import to avoid issues with Next.js server components
-      // Use variable to prevent bundlers from trying to resolve the path
-      const nextHeadersPath = 'next/headers';
-
-      this.logger.debug('Attempting to import next/headers', {
-        nextHeadersPath,
-        nodeEnv: process.env.NODE_ENV,
-        runtime: typeof globalThis !== 'undefined' ? 'edge' : 'nodejs'
-      });
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const nextHeaders = await import(nextHeadersPath as any);
-
-      this.logger.debug('Successfully imported next/headers', {
-        hasHeaders: !!nextHeaders,
-        hasCookies: !!(nextHeaders as any).cookies,
-        exports: Object.keys(nextHeaders)
-      });
-
-      const { cookies } = nextHeaders as any;
-
-      // In Next.js 15+, cookies() returns a Promise and must be awaited
-      // In Next.js 14-, cookies() returns the cookie store directly
-      // We'll try the async version first (Next.js 15+), then fall back to sync (Next.js 14-)
-      this.logger.debug('Calling cookies() function');
-      let cookiesResult;
-
+      // Call cookies() and check if it returns a Promise (Next.js 15+) or direct value (Next.js 14)
       const cookiesCall = cookies();
 
-      // Check if it's a Promise (Next.js 15+) or direct result (Next.js 14-)
-      if (cookiesCall && typeof cookiesCall.then === 'function') {
-        this.logger.debug('cookies() returned a Promise (Next.js 15+), awaiting...');
-        cookiesResult = await cookiesCall;
+      let cookieStore: unknown;
+      if (typeof cookiesCall === 'object' && cookiesCall !== null && 'then' in cookiesCall && typeof (cookiesCall as { then: unknown }).then === 'function') {
+        this.logger.debug('Detected Next.js 15+ async cookies() - awaiting result');
+        cookieStore = await (cookiesCall as Promise<unknown>);
       } else {
-        this.logger.debug('cookies() returned directly (Next.js 14-)');
-        cookiesResult = cookiesCall;
+        this.logger.debug('Detected Next.js 14 sync cookies() - using direct result');
+        cookieStore = cookiesCall;
       }
 
-      const cookieStore = createNextjsCookieStore(cookiesResult);
+      const webCookieStore = createNextjsCookieStore(cookieStore);
+      const sessionManager = new SessionManager(webCookieStore, this.sessionConfig, this.logger);
 
-      // Create new instance each time since cookies() must be called fresh in Next.js
-      return new SessionManager(cookieStore, this.sessionConfig, this.logger);
+      this.logger.debug('Session manager created successfully');
+      return sessionManager;
+
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const errorCode = (error as NodeJS.ErrnoException)?.code || 'unknown';
-
-      this.logger.error('Failed to import or use next/headers', {
-        error: errorMessage,
-        code: errorCode,
+      this.logger.error('Failed to create Next.js session manager', {
+        error: (error as Error).message,
         nodeEnv: process.env.NODE_ENV,
         platform: process.platform,
         nodeVersion: process.version,
-        stack: error instanceof Error ? error.stack : undefined
+        stack: (error as Error).stack
       });
 
       throw new Error(
-        `Next.js headers module not available. Original error: ${errorMessage} (${errorCode}). ` +
-        `Make sure you are running in a Next.js 14+ environment and the module is properly installed.`
+        `Failed to access Next.js cookies: ${(error as Error).message}. Make sure this code is running in a Next.js App Router context.`
       );
     }
   }

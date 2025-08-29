@@ -20,11 +20,11 @@ Designed for serverless, stateless environments with security-first defaults and
 npm install adapt-auth-sdk
 ```
 
-### Basic Usage
+### Basic Usage (Next.js)
 
 ```typescript
 // lib/auth.ts
-import { createAdaptNext } from 'adapt-auth-sdk';
+import { createAdaptNext } from 'adapt-auth-sdk/next';
 
 export const auth = createAdaptNext({
   saml: {
@@ -37,6 +37,27 @@ export const auth = createAdaptNext({
     secret: process.env.ADAPT_AUTH_SESSION_SECRET!,
   },
 });
+```
+
+### Basic Usage (Framework-Agnostic)
+
+```typescript
+// For other frameworks or custom implementations
+import { SAMLProvider, SessionManager, createWebCookieStore } from 'adapt-auth-sdk';
+
+const samlProvider = new SAMLProvider({
+  issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
+  idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
+  returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!,
+});
+
+const sessionManager = new SessionManager(
+  createWebCookieStore(req, res),
+  { 
+    name: 'adapt-auth',
+    secret: process.env.ADAPT_AUTH_SESSION_SECRET!
+  }
+);
 ```
 
 #### Optional Configuration
