@@ -43,6 +43,46 @@ export const auth = createAdaptNext({
 });
 ```
 
+## Usage Patterns
+
+The ADAPT Auth SDK provides two ways to access session data in Next.js:
+
+### 1. Server Components & Server Actions
+In Server Components and Server Actions, call session methods without parameters:
+
+```typescript
+// Server Component
+export default async function MyPage() {
+  const session = await auth.getSession(); // No parameters
+  const user = await auth.getUser();       // No parameters
+  const isAuth = await auth.isAuthenticated(); // No parameters
+  
+  // Use session data...
+}
+```
+
+### 2. API Routes & Middleware  
+In API routes and middleware, always pass the `Request` object:
+
+```typescript
+// API route
+export async function GET(request: Request) {
+  const session = await auth.getSession(request); // Pass request
+  const user = await auth.getUser(request);       // Pass request
+  const isAuth = await auth.isAuthenticated(request); // Pass request
+  
+  // Use session data...
+}
+
+// Middleware
+export function middleware(request: NextRequest) {
+  const session = await auth.getSession(request); // Pass request
+  // ...
+}
+```
+
+The SDK automatically handles the different contexts and cookie access patterns.
+
 ## Authentication Routes
 
 ### Login Route
@@ -109,18 +149,11 @@ export async function GET(request: Request) {
 // app/protected/page.tsx
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
 
 export default async function ProtectedPage() {
-  const headersList = headers();
-  const cookieHeader = headersList.get('cookie');
-
-  // Create a mock request object for server component
-  const mockRequest = new Request('http://localhost', {
-    headers: { cookie: cookieHeader || '' },
-  });
-
-  const session = await auth.getSession(mockRequest);
+  // In Server Components, use getSession() without parameters
+  // It will automatically use Next.js cookies() internally
+  const session = await auth.getSession();
 
   if (!session) {
     redirect('/api/auth/login?returnTo=/protected');
@@ -149,17 +182,10 @@ export default async function ProtectedPage() {
 ```typescript
 // components/UserProfile.tsx
 import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
 
 export default async function UserProfile() {
-  const headersList = headers();
-  const cookieHeader = headersList.get('cookie');
-
-  const mockRequest = new Request('http://localhost', {
-    headers: { cookie: cookieHeader || '' },
-  });
-
-  const session = await auth.getSession(mockRequest);
+  // In Server Components, use getSession() without parameters
+  const session = await auth.getSession();
 
   if (!session) {
     return (
@@ -308,6 +334,7 @@ import { auth } from '@/lib/auth';
 export async function middleware(request: NextRequest) {
   // Only protect specific routes
   if (request.nextUrl.pathname.startsWith('/protected')) {
+    // In middleware, always pass the request object
     const session = await auth.getSession(request);
 
     if (!session) {

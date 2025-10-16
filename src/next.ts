@@ -454,26 +454,44 @@ export class AdaptNext {
   /**
    * Get current session
    *
+   * @param request - Optional Request object for API routes and middleware
    * @returns Promise resolving to current session or null if not authenticated
    *
    * @example
    * ```typescript
-   * // In Server Component or Server Action
+   * // In Server Component
    * const session = await auth.getSession();
    * if (session) {
    *   console.log('User:', session.user.name);
    * }
+   *
+   * // In API route
+   * export async function GET(request: Request) {
+   *   const session = await auth.getSession(request);
+   *   if (!session) {
+   *     return Response.json({ error: 'Unauthorized' }, { status: 401 });
+   *   }
+   *   return Response.json({ user: session.user });
+   * }
    * ```
    */
-  async getSession(): Promise<Session | null> {
+  async getSession(request?: Request): Promise<Session | null> {
     this.assertServerEnvironment('getSession');
-    const sessionManager = await this.getSessionManager();
-    return sessionManager.getSession();
+
+    if (request) {
+      // For API routes, middleware, etc. - use the provided Request object
+      return getSessionFromNextRequest(request, this.sessionConfig.secret, this.sessionConfig.name);
+    } else {
+      // For Server Components, Server Actions - use Next.js cookies()
+      const sessionManager = await this.getSessionManager();
+      return sessionManager.getSession();
+    }
   }
 
   /**
    * Get current user
    *
+   * @param request - Optional Request object for API routes and middleware
    * @returns Promise resolving to current user or null if not authenticated
    *
    * @example
@@ -483,24 +501,36 @@ export class AdaptNext {
    * if (!user) {
    *   redirect('/login');
    * }
+   *
+   * // In API route
+   * const user = await auth.getUser(request);
    * ```
    */
-  async getUser(): Promise<User | null> {
+  async getUser(request?: Request): Promise<User | null> {
     this.assertServerEnvironment('getUser');
-    const sessionManager = await this.getSessionManager();
-    return sessionManager.getUser();
+
+    if (request) {
+      // For API routes, middleware, etc.
+      const session = await getSessionFromNextRequest(request, this.sessionConfig.secret, this.sessionConfig.name);
+      return session?.user || null;
+    } else {
+      // For Server Components, Server Actions
+      const sessionManager = await this.getSessionManager();
+      return sessionManager.getUser();
+    }
   }
 
   /**
    * Check if user is authenticated
    *
+   * @param request - Optional Request object for API routes and middleware
    * @returns Promise resolving to true if user is authenticated
    *
    * @example
    * ```typescript
    * // In route handler
-   * export async function GET() {
-   *   if (!(await auth.isAuthenticated())) {
+   * export async function GET(request: Request) {
+   *   if (!(await auth.isAuthenticated(request))) {
    *     return Response.redirect('/login');
    *   }
    *
@@ -508,10 +538,18 @@ export class AdaptNext {
    * }
    * ```
    */
-  async isAuthenticated(): Promise<boolean> {
+  async isAuthenticated(request?: Request): Promise<boolean> {
     this.assertServerEnvironment('isAuthenticated');
-    const sessionManager = await this.getSessionManager();
-    return sessionManager.isAuthenticated();
+
+    if (request) {
+      // For API routes, middleware, etc.
+      const session = await getSessionFromNextRequest(request, this.sessionConfig.secret, this.sessionConfig.name);
+      return !!session?.user;
+    } else {
+      // For Server Components, Server Actions
+      const sessionManager = await this.getSessionManager();
+      return sessionManager.isAuthenticated();
+    }
   }
 
   /**
@@ -567,8 +605,8 @@ export class AdaptNext {
    */
   auth(handler: RouteHandler) {
     return async (request: Request): Promise<Response> => {
-      const sessionManager = await this.getSessionManager();
-      const session = await sessionManager.getSession();
+      // Use Request-based session retrieval for better API route compatibility
+      const session = await this.getSession(request);
 
       const context: AuthContext = {
         session: session || undefined,
