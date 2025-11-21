@@ -1,5 +1,7 @@
 # ADAPT Auth SDK
 
+**Version 2**
+
 A framework-agnostic TypeScript authentication library for Stanford Pass SAML integration. 
 Designed for serverless, stateless environments with security-first defaults and cookie-only sessions.
 
