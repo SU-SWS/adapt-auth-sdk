@@ -232,17 +232,11 @@ export class SAMLProvider {
   async getLoginUrl(options: LoginOptions = {}): Promise<string> {
     try {
       const { returnTo, ...additionalParams } = options;
-
-      // Create RelayState payload if needed
-      let relayState: string | undefined;
-      if (this.config.includeReturnTo && returnTo) {
-        const payload: RelayStatePayload = {
-          return_to: returnTo || this.config.returnToPath || '/',
-        };
-
-        relayState = JSON.stringify(payload);
-      }
-
+      const payload: RelayStatePayload = {
+        return_to: returnTo || this.config.returnToPath || '/',
+      };
+      const relayState = JSON.stringify(payload);
+      
       // Build service provider login URL
       const acsUrl = new URL(this.config.returnToPath, this.config.returnToOrigin).toString();
       const params = new URLSearchParams({
