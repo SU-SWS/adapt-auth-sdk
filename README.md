@@ -1,253 +1,284 @@
-# Adapt Auth SDK
+# ADAPT Auth SDK
 
-The AdaptAuth SDK provides all the functionality to easily integrate your Javascript
-web applications with our Stanford SAML federated identity provider. 
+A framework-agnostic TypeScript authentication library for Stanford Pass SAML integration. 
+Designed for serverless, stateless environments with security-first defaults and cookie-only sessions.
 
-## Usage
+## Features
 
-The AdaptAuth SDK is intended to be used in node [connect](https://github.com/senchalabs/connect)
-style http server middleware (e.g. [express](https://expressjs.com/)).
-To use it just configure your env, import the SDK client, and use the middlewares in your app.
+- **Framework Agnostic**: Works with Next.js, Express.js, and any Web API framework
+- **TypeScript First**: Complete TypeScript implementation with strict typing
+- **Security Focused**: Encrypted sessions, CSRF protection
+- **Serverless Ready**: Cookie-only sessions, no server-side storage required
+- **Edge Compatible**: Session validation in edge functions for ultra-fast performance
+- **Developer Friendly**: Simple API inspired by Auth.js patterns
 
-```typescript
-import express from 'express';
-import { auth } from 'AdaptAuth';
+## Quick Start
 
-const app = express();
+### Installation
 
-// Add AdaptAuth authorization middleware
-app.use(auth.authorize());
-app.get('/my-protected-endpoint', (req, res) => {
-  // Nothing to see here...
-});
-
-
-app.listen(3000);
-```
-
-### Configuration
-The easiest way to configure AdaptAuth is by setting environment variables
 ```bash
-# adapt-sso-sp SAML service provider login url (REQUIRED)
-ADAPT_AUTH_SAML_SP_URL="https://adapt-sso-uat.stanford.edu/api/sso/login"
-# adapt-sso-sp SAML registry entity id (REQUIRED)
-ADAPT_AUTH_SAML_ENTITY="my-saml-app-entity"
-# SAML signing pem certificate (REQUIRED)
-ADAPT_AUTH_SAML_CERT="PEM used for saml document signing"
-# Private key used to decrypt encrypted SAML assertions (optional)
-ADAPT_AUTH_SAML_DECRYPTION_KEY="private decryption key"
-# Local app origin part for SAML returnTo POST back
-ADAPT_AUTH_SAML_RETURN_ORIGIN="https://my-app.stanford.edu"
-# Local app path part for SAML returnTo POST back
-ADAPT_AUTH_SAML_RETURN_PATH="/auth/saml"
-# Local app endpoint to handle SAML POST back (overrides host/path when set)
-# ADAPT_AUTH_SAML_RETURN_URL="https://my-app.stanford.edu/auth/saml"
-# Secret used for signing/verifying local session jwts (REQUIRED)
-ADAPT_AUTH_SESSION_SECRET="some-signing-secret"
-# Name for local session cookie (optional)
-ADAPT_AUTH_SESSION_NAME="adapt-auth"
-# expiresIn / maxAge for session tokens
-ADAPT_AUTH_SESSION_EXPIRES_IN="24h"
-# Local url to redirect to after logging out of session (optional) defaults to "/"
-ADAPT_AUTH_SESSION_LOGOUT_URL="/login"
-# Local url to redirect to after authorize middleware failure (optional) defaults to responding 401
-ADAPT_AUTH_SESSION_UNAUTHORIZED_URL
+npm install adapt-auth-sdk
 ```
 
-You can optionally instantiate a new AdaptAuth instance and pass your own configuration values.
-```typescript
-import { AdaptAuth } from 'AdaptAuth';
+### Basic Usage (Next.js)
 
-const myAuthInstance = new AdaptAuth({
+```typescript
+// lib/auth.ts
+import { createAdaptNext } from 'adapt-auth-sdk/next';
+
+export const auth = createAdaptNext({
   saml: {
-    serviceProviderLoginUrl: 'https://adapt-sso.stanford.edu/api/sso/login',
-    entity: 'my-other-saml-entity',
-    returnToHost: process.env.APP_HOST,
-    returnToPath: '/auth/saml'
-    cert: 'MySamlCert',
+    issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
+    idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
+    returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!,
   },
   session: {
-    name: 'my-auth-session',
-    secret: 'my-jwt-secret',
-    logoutRedirectUrl: '/login',
-    unauthorizedRedirectUrl: '/login?code=UNAUTHORIZED',
-  },
-});
-
-...
-```
-
-## Basic Auth Flow Integration
-
-A basic usage of this SDK would involve the following endpoints setup:
-- Using `auth.initiate` to redirect users to the SAML service provider
-- Using `auth.authenticate` to handle the SAML document POST back from the IdP and create a local session
-- Using `auth.authorize` on protected endpoints/routes to verify valid local sessions
-- Using `auth.destroySession` to provide an additional way for a user to manually end their session
-
-Here's an example express app:
-```typescript
-import express from 'express';
-import cookieParser from 'cookie-parser';
-import { auth } from 'AdaptAuth';
-import { service } from './service';
-
-const app = express();
-
-// Basic middlewares
-app.use(express.json());
-app.use(cookieParser());
-
-// Initiate SAML SP redirect
-app.get('/login', auth.initiate());
-
-// Handle SAML document POST back. User redirected to '/dashboard' on successful authentication
-app.post(
-  '/api/auth/callback',
-  authInstance.authenticate(),
-  (req, res, next) => {
-    res.redirect('/dashboard);
-  }
-);
-
-// Protect endpoints with local session authorization. Unauthorized users redirected to '/login' here
-app.get(
-  '/dashboard',
-  auth.authorize({ redirectUrl: '/login' }),
-  async (req, res) => {
-    // Utilize SAML user properties in authorized session endpoints
-    const dashboardStuff = await service.getDashboardStuff(req.user.encodedSUID);
-
-    res.json({ data: dashboardStuff });
-  }
-);
-
-// Log users out of local session and redirect them to '/home'
-app.get('/logout', auth.destroySession('/home'));
-
-// A public homepage for completeness
-app.get('/home', (req, res) => {
-  const homeStuff = await service.getHomeStuff();
-
-  res.json({ data: homeStuff });
-})
-
-app.listen(3000);
-```
-
-### Required middlewares
-It should be noted that these middleware expect certain other basic middlewares to be present.
-Most notably, you should have [`express.json`](https://expressjs.com/en/api.html#express.json)
-and [`cookie-parser`](http://expressjs.com/en/resources/middleware/cookie-parser.html) middlewares
-setup as there is an expectation that we will be able to access data at `req.body` and `req.cookies`.
-
-### Usage in Lambda functions
-
-To use AdaptAuth middlewares in a lambda function all you need to do is create a simple
-express application for your handler that uses the middleware, then wrap it with
-[serverless-http](https://github.com/dougmoscrop/serverless-http).
-Here's a link to a [Netlify post](https://www.netlify.com/blog/2018/09/13/how-to-run-express.js-apps-with-netlify-functions/)
-that goes through the whole process :wink:.
-
-### Usage with Next.js API routes
-If you're using [Next.js api routes](https://nextjs.org/docs/api-routes/introduction) you can easily
-integrate the AdaptAuth middlewares with the [next-connect](https://github.com/hoangvvo/next-connect) package.
-It provides a simple connect interface that outputs a `NextApiHandler`! Boom! :collision: done.
-
-## API
-### `AdaptAuth.initiate()`
-
-Creates a middleware handler that simply redirects the request to the adapt-sso-sp servicer provider
-with the confgiured paramters for entity and returnTo url. Note that this also handles passing along
-a `final_destination` if present in `req.query.final_destination` to be added to the SAML RelayState.
-
-```typescript
-app.get('/saml/login', auth.initiate());
-```
-
-### `AdaptAuth.initialize()`
-This is a simple pass-through of passports initialze middleware. It must be called prior to `AdaptAuth.authenticateSaml`
-
-### `AdaptAuth.authenticateSaml`
-Simple pass-through of `passport.authenticate` with confgired SamlStrategy. Required `AdaptAuth.initialize` middleware to have run prior.
-
-### `AdaptAuth.signToken(user: AuthUser)`
-Simple utility function to sign session jwts with the configured secrets and passed user as payload.
-
-### `AdaptAuth.verifyToken(token: string)`
-Simple utility to verify and decode session jwts. Rejects on invalid token. Resolves decoded user payload.
-
-### `AdaptAuth.createSession()`
-Simple middleware for saving the authenticated SAML user to a local jwt session. Creates an http only secure cookie
-with SAML user payload as well as a basic http cookie signifying that the session exists.
-**NOTE:** This middleware expects to find a valid SamlUser on the request object at `req.user`. It will return a `401` otherwise.
-
-### `AdaptAuth.destroySession(redirectUrl?: string)`
-Middleware that destroys local jwt session and redirects.
-
-- `redirectUrl?: string` Local path to redirect to after session destroyed. Overrides `config.logoutRedirectUrl`.
-
-```typescript
-app.get('/logout', auth.destroySession('/public-homepage'));
-```
-
-### `AdaptAuth.authenticate()`
-This middleware is a wrapper for the entire authentication process intended to be used as the saml POST back endpoint.
-It handles passport initialization, SAML document verification, and local jwt session creation.
-
-```typescript
-app.post('/handle/saml', auth.authenticate());
-```
-
-### `AdaptAuth.authorize(options?: AuthorizeOptions = {})`
-Middleware to validate incoming requests against the local jwt session.
-
-#### `AuthorizeOptions`
-- `options.allowUnauthorized?: boolean` - Allow unauthorized requests to go to next middleware (useful for auth optional endpoints)
-- `options.redirectUrl?: string` - URL to redirect to on unauthorized. Will override `config.unauthorizedRedirectUrl` if set.
-
-```typescript
-app.get(
-  '/user-details',
-  auth.authorize({ redirectUrl: '/login' }),
-  async (req, res) => {
-    const user = await getUser();
-    res.json(user);
-  }
-)
-```
-
-### `AdaptAuth.getFinalDestination(req: any)`
-Helper function to extract possible `finalDestination` url from SAML relay state on request object.
-
-- `req: any` The request object to extract saml final destination from
-
-
-### Caveats when using on Netlify-hosted sites
-If you are using https://github.com/bencao/netlify-plugin-inline-functions-env to inline your environment variables, 
-be aware that it only replaces process.env.[variable_name] usages for files inside your functions directory. 
-
-Because of this, you should not rely on the singleton object or the defaults provided by the constructor.
-You'll need to initate an AdaptAuth instance inside a file in your functions directory, and pass in the full list of options. 
-It's fine to copy-paste these from the constructor in src/AdaptAuth.ts as a starting point, as shown below:
-
-```
-const authInstance = new AdaptAuth({
-  saml: {
-    serviceProviderLoginUrl: process.env.ADAPT_AUTH_SAML_SP_URL || 'https://adapt-sso-uat.stanford.edu/api/sso/login',
-    entity: process.env.ADAPT_AUTH_SAML_ENTITY || 'adapt-sso-uat',
-    cert: process.env.ADAPT_AUTH_SAML_CERT,
-    decryptionKey: process.env.ADAPT_AUTH_SAML_DECRYPTION_KEY,
-    returnTo: process.env.ADAPT_AUTH_SAML_RETURN_URL,
-    returnToOrigin: siteUrl,
-    returnToPath: process.env.ADAPT_AUTH_SAML_RETURN_PATH,
-  },
-  session: {
-    secret: process.env.ADAPT_AUTH_SESSION_SECRET,
-    name: process.env.ADAPT_AUTH_SESSION_NAME || 'adapt-auth',
-    expiresIn: process.env.ADAPT_AUTH_SESSION_EXPIRES_IN || '12h',
-    loginRedirectUrl: process.env.ADAPT_AUTH_SESSION_LOGIN_URL || '/',
-    unauthorizedRedirectUrl: process.env.ADAPT_AUTH_SESSION_UNAUTHORIZED_URL,
+    name: 'adapt-auth',
+    secret: process.env.ADAPT_AUTH_SESSION_SECRET!,
   },
 });
 ```
+
+### Basic Usage (Framework-Agnostic)
+
+```typescript
+// For other frameworks or custom implementations
+import { SAMLProvider, SessionManager, createWebCookieStore } from 'adapt-auth-sdk';
+
+const samlProvider = new SAMLProvider({
+  issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
+  idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
+  returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!,
+});
+
+const sessionManager = new SessionManager(
+  createWebCookieStore(req, res),
+  { 
+    name: 'adapt-auth',
+    secret: process.env.ADAPT_AUTH_SESSION_SECRET!
+  }
+);
+```
+
+#### Optional Configuration
+
+The SDK uses sensible defaults, but you can customize any behavior:
+
+```typescript
+export const auth = createAdaptNext({
+  saml: {
+    // Required
+    issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
+    idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
+    returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!,
+
+    // Optional - customize as needed
+    serviceProviderLoginUrl: 'https://custom.stanford.edu/api/sso/login',
+    returnToPath: '/custom/callback',
+    includeReturnTo: true,
+    privateKey: process.env.ADAPT_AUTH_SAML_PRIVATE_KEY,
+    decryptionPvk: process.env.ADAPT_AUTH_SAML_DECRYPTION_KEY,
+    wantAssertionsSigned: true,
+    wantAuthnResponseSigned: true,
+    acceptedClockSkewMs: 60000, // 1 minute
+    allowCreate: false,
+    additionalParams: { custom: 'value' },
+    additionalAuthorizeParams: { prompt: 'login' },
+  },
+  session: {
+    // Required
+    name: 'adapt-auth',  // Creates 'adapt-auth' (main) and 'adapt-auth-session' (JS) cookies
+    secret: process.env.ADAPT_AUTH_SESSION_SECRET!,
+
+    // Optional - customize as needed
+    cookie: {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 86400, // 1 day
+    },
+    cookieSizeThreshold: 3500,
+  },
+
+  // Optional global settings
+  logger: customLogger,
+  verbose: process.env.NODE_ENV === 'development',
+});
+```
+
+```typescript
+// app/api/auth/login/route.ts
+export async function GET() {
+  return auth.login({ returnTo: '/dashboard' });
+}
+
+// app/api/auth/callback/route.ts
+export async function POST(request: Request) {
+  const { user, session, returnTo } = await auth.authenticate(request);
+  const redirectUrl = returnTo || '/dashboard';
+  return Response.redirect(redirectUrl);
+}
+
+// app/api/auth/logout/route.ts
+export async function POST() {
+  await auth.logout();
+  return Response.redirect('/login');
+}
+```
+
+## Documentation
+
+📚 **[Getting Started](./docs/getting-started.md)** - Installation and basic setup for Next.js and Express.js
+
+⚙️ **[Configuration](./docs/configuration.md)** - Complete configuration reference and environment variables
+
+🔒 **[Security](./docs/security.md)** - Security features, best practices, and threat protection
+
+⚡ **[Edge Functions](./docs/edge-functions.md)** - Ultra-fast session validation in edge environments
+
+🚀 **[Advanced Usage](./docs/advanced-usage.md)** - Custom implementations, performance optimization, and advanced patterns
+
+📖 **[API Reference](./docs/api-reference.md)** - Complete API documentation with examples
+
+🔄 **[Migration Guide](./docs/migration.md)** - Migrating from v1.x and other authentication libraries
+
+## Environment Variables
+
+Set these required environment variables:
+
+```bash
+ADAPT_AUTH_SAML_ENTITY="your-saml-entity-id"
+ADAPT_AUTH_SAML_CERT="-----BEGIN CERTIFICATE-----..."
+ADAPT_AUTH_SAML_RETURN_ORIGIN="https://your-app.com"
+ADAPT_AUTH_SESSION_SECRET="your-32-character-minimum-secret"
+```
+
+## Key Features
+
+### Security First
+- SAML 2.0 signature validation
+- Encrypted cookie sessions
+- CSRF protection
+
+### Developer Experience
+- TypeScript-first with strict typing
+- Framework-agnostic design
+- Simple, intuitive API
+- Comprehensive error handling
+- Detailed logging with automatic PII redaction
+
+### Production Ready
+- Serverless/stateless architecture
+- Cookie-only sessions (no server storage)
+- Comprehensive test coverage
+
+## Quick Examples
+
+### Getting User Session
+
+```typescript
+const session = await auth.getSession();
+if (session) {
+  console.log('User:', session.user.name);
+  console.log('Authenticated:', await auth.isAuthenticated());
+}
+```
+
+### Updating Session Data
+
+```typescript
+// Add custom metadata to session
+await auth.updateSession({
+  meta: {
+    theme: 'dark',
+    language: 'en',
+    lastVisited: '/dashboard',
+    preferences: { notifications: true }
+  }
+});
+
+// Update user information in session
+const currentSession = await auth.getSession();
+await auth.updateSession({
+  user: {
+    ...currentSession?.user,
+    displayName: 'John Doe',
+    avatar: '/images/avatar.jpg'
+  }
+});
+```
+
+### Client-Side Authentication Check
+
+```typescript
+// Check authentication status in browser JavaScript
+import { isAuthenticated } from 'adapt-auth-sdk/session';
+
+if (isAuthenticated('adapt-auth')) {
+  console.log('User is authenticated');
+} else {
+  window.location.href = '/api/auth/login';
+}
+```
+
+### Protecting Routes
+
+```typescript
+// Next.js middleware
+export async function middleware(request: NextRequest) {
+  const session = await auth.getSession(request);
+  if (!session && request.nextUrl.pathname.startsWith('/protected')) {
+    return Response.redirect(new URL('/api/auth/login', request.url));
+  }
+}
+```
+
+### Custom Profile Mapping
+
+```typescript
+const auth = createAdaptNext({
+  // ... config
+  callbacks: {
+    mapProfile: async (profile) => ({
+      id: profile.encodedSUID,
+      email: `${profile.userName}@stanford.edu`,
+      name: `${profile.firstName} ${profile.lastName}`,
+      department: profile.department,
+    }),
+  },
+});
+```
+
+### Edge Function Session Validation
+
+```typescript
+// Ultra-fast session checking in edge functions
+import { isAuthenticatedEdge } from 'adapt-auth-sdk/edge-session';
+
+export async function middleware(request: NextRequest) {
+  const isAuthenticated = await isAuthenticatedEdge(request);
+  if (!isAuthenticated && request.nextUrl.pathname.startsWith('/protected')) {
+    return Response.redirect(new URL('/api/auth/login', request.url));
+  }
+}
+
+export const config = { runtime: 'edge' };
+```
+
+## License
+
+GNU Version 3 License - see [LICENSE](./LICENSE) for details.
+
+## Contributing
+
+Contributions are welcome! Please read our contributing guidelines and submit pull requests to our GitHub repository.
+
+## Security
+
+Security issues should be reported privately. Please do not open public GitHub issues for security vulnerabilities.
+
+## Support
+
+- 📖 [Documentation](./docs/)
+- 🐛 [Issues](https://github.com/su-sws/adapt-auth-sdk/issues)

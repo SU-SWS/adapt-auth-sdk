@@ -1,125 +1,518 @@
-import { Request } from 'express';
+/**
+ * User data structure for session storage
+ */
+export type User = {
+  /**
+   * Unique and stable identifier for the user.
+   * This value is used as the primary identifier for authentication.
+   * It must be unique across all users and should not change over time.
+   */
+  id: string;
 
-// NOTE: This type is duplicated here so we can more easily abstract this module for distribution
-export type DeepPartial<T extends {}> = {
-  [P in keyof T]?: DeepPartial<T[P]>;
+  /**
+   * Email address of the user (optional)
+   */
+  email?: string;
+
+  /**
+   * Full name of the user (optional)
+   */
+  name?: string;
+
+  /**
+   * Profile image URL of the user (optional)
+   */
+  imageUrl?: string;
+  [key: string]: unknown; // Allow additional user properties
 };
 
 /**
- * Authorize middleware options
+ * Session data structure
  */
-export interface AuthorizeOptions {
-  allowUnauthorized?: boolean;
-  redirectUrl?: string;
+export type Session = {
+  user: User;
+  meta?: Record<string, unknown>; // developer-defined metadata
+  issuedAt: number;
+  expiresAt: number;
+};
+
+/**
+ * RelayState payload structure
+ */
+export interface RelayStatePayload {
+  return_to?: string;
 }
 
 /**
- * Session config
+ * Structured logger interface
  */
-export interface AdaptAuthSessionConfig {
-  /**
-   * JWT signing secret
-   */
-  secret: string;
-  /**
-   * Name for session cookie. Defaults to 'adapt-auth'
-   */
-  name: string;
-  /**
-   * Session length. Defaults to '12h'
-   */
-  expiresIn: string;
-  /**
-   * Local path to redirect to after successful session creation
-   */
-  loginRedirectUrl?: string;
-  /**
-   * Local path to redirect to after successful session destruction
-   */
-  logoutRedirectUrl: string;
-  /**
-   * Local path to redirect to after failed authorization
-   */
-  unauthorizedRedirectUrl?: string;
+export interface Logger {
+  debug(message: string, meta?: Record<string, unknown>): void;
+  info(message: string, meta?: Record<string, unknown>): void;
+  warn(message: string, meta?: Record<string, unknown>): void;
+  error(message: string, meta?: Record<string, unknown>): void;
 }
 
 /**
- * SAML Config
+ * Required SAML configuration (minimal fields developers must provide)
  */
-export interface AdaptAuthSamlConfig {
+export interface RequiredSamlConfig {
   /**
-   * Login entrypoint relay for adapt-sso-sp
+   * SAML entity/issuer identifier (required)
    */
-  serviceProviderLoginUrl: string;
+  issuer: string;
+
   /**
-   * SAML Application entity id
+   * IdP certificate for validating SAML responses (required)
    */
-  entity: string;
+  idpCert: string;
+
   /**
-   * SAML public signing verification certificate
+   * Base URL of your application where SAML responses are received (required)
    */
-  cert: string | string[];
+  returnToOrigin: string;
+}
+
+/**
+ * Optional SAML configuration with sensible defaults
+ */
+export interface OptionalSamlConfig {
   /**
-   * Optional private key used to decrypt encrypted SAML assertions
+   * URL to initiate SAML login via service provider
+   * @default `https://${issuer}.stanford.edu/api/sso/login`
    */
-  decryptionKey?: string;
+  serviceProviderLoginUrl?: string;
+
   /**
-   * Absolute application for SAML document POST back
-   */
-  returnTo?: string;
-  /**
-   * Application origin for SAML document POST back
-   */
-  returnToOrigin?: string;
-  /**
-   * Application url path for SAML document POST back
+   * Path component for ACS (Assertion Consumer Service) URL
+   * @default ''
    */
   returnToPath?: string;
+
+  /**
+   * Whether to include returnTo URL in RelayState for post-login redirects
+   * @default true
+   */
+  includeReturnTo?: boolean;
+
+  /**
+   * Private key for SAML signing (if different from idpCert)
+   * @default process.env.ADAPT_AUTH_SAML_PRIVATE_KEY || idpCert
+   */
+  privateKey?: string;
+
+  /**
+   * Private key for SAML decryption
+   * @default process.env.ADAPT_AUTH_SAML_DECRYPTION_KEY
+   */
+  decryptionPvk?: string;
+
+  /**
+   * SAML audience (usually entity URL)
+   * @default `https://${issuer}.stanford.edu`
+   */
+  audience?: string;
+
+  /**
+   * Require signed SAML assertions
+   * @default true
+   */
+  wantAssertionsSigned?: boolean;
+
+  /**
+   * Require signed SAML responses
+   * @default true
+   */
+  wantAuthnResponseSigned?: boolean;
+
+  /**
+   * Allowed clock skew in milliseconds for time-based validations
+   * @default 60000 (1 minute)
+   */
+  acceptedClockSkewMs?: number;
+
+  /**
+   * SAML signature algorithm
+   * @default 'sha256'
+   */
+  signatureAlgorithm?: string;
+
+  /**
+   * SAML identifier format
+   * @default 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified'
+   */
+  identifierFormat?: string;
+
+  /**
+   * Allow creation of new accounts
+   * @default false
+   */
+  allowCreate?: boolean;
+
+  /**
+   * Additional parameters for SAML requests
+   * @default {}
+   */
+  additionalParams?: Record<string, unknown>;
+
+  /**
+   * Additional authorization parameters
+   * @default {}
+   */
+  additionalAuthorizeParams?: Record<string, unknown>;
 }
 
 /**
- * SDK configuration
+ * Complete SAML configuration (combines required and optional)
  */
-export interface AdaptAuthConfig {
-  saml: AdaptAuthSamlConfig;
-  session: AdaptAuthSessionConfig;
+export type SamlConfig = RequiredSamlConfig & OptionalSamlConfig;
+
+/**
+ * Required session configuration (minimal fields developers must provide)
+ */
+export interface RequiredSessionConfig {
+  /**
+   * Session cookie name (required)
+   */
+  name: string;
+
+  /**
+   * Secret for encrypting session data - must be 32+ characters (required)
+   */
+  secret: string;
 }
 
 /**
- * Auth user parsed from SAML profile or jwt
+ * Optional session configuration with sensible defaults
  */
-export interface AuthUser {
-  userName: string;
-  email: string;
-  firstName?: string;
-  lastName: string;
-  SUID?: string;
-  encodedSUID: string;
+export interface OptionalSessionConfig {
+  /**
+   * Cookie configuration options
+   */
+  cookie?: {
+    /**
+     * Prevent client-side JavaScript access to cookie
+     * @default true
+     */
+    httpOnly?: boolean;
+
+    /**
+     * Only send cookie over HTTPS in production
+     * @default true
+     */
+    secure?: boolean;
+
+    /**
+     * SameSite cookie attribute for CSRF protection
+     * @default 'lax'
+     */
+    sameSite?: 'lax' | 'strict' | 'none';
+
+    /**
+     * Cookie path
+     * @default '/'
+     */
+    path?: string;
+
+    /**
+     * Cookie domain (optional)
+     */
+    domain?: string;
+
+    /**
+     * Cookie max age in seconds (optional, default is session cookie)
+     */
+    maxAge?: number;
+  };
+
+  /**
+   * Cookie size warning threshold in bytes
+   * @default 3500
+   */
+  cookieSizeThreshold?: number;
 }
-
-// Utility type useful for extending http request-like types
-export interface AuthUserReqExtender {
-  user?: AuthUser;
-}
-
-// Utility type that extends http request-like types
-export type WithAuthUser<R extends {}> = R & AuthUserReqExtender;
-
-// Http Request extended with AuthUser
-export type AuthUserRequest = WithAuthUser<Request>;
 
 /**
- * SAML RelayState Object
+ * Complete session configuration (combines required and optional)
  */
-export interface SamlRelayState {
-  entity: string;
+export type SessionConfig = RequiredSessionConfig & OptionalSessionConfig;
+
+// Types mirroring the cookie-store shape accepted by `iron-session`'s
+// getIronSession(cookies, options) overload. We keep a minimal local
+// representation here so other modules can safely cast their adapters.
+// See: node_modules/iron-session/dist/index.d.ts for the authoritative
+// declaration (CookieStore / ResponseCookie types).
+export type IronCookieSet = {
+  (name: string, value: string, cookie?: Partial<Record<string, unknown>>): void;
+  (options: { name: string; value: string; httpOnly?: boolean; maxAge?: number; domain?: string; path?: string; sameSite?: 'lax' | 'strict' | 'none'; secure?: boolean; expires?: Date; priority?: string }): void;
+};
+
+export interface IronCookieStore {
+  get: (name: string) => { name: string; value: string } | undefined;
+  set: IronCookieSet;
+}
+
+/**
+ * Required authentication configuration (minimal fields developers must provide)
+ */
+export interface RequiredAuthConfig {
+  /**
+   * SAML configuration - only required fields need to be provided
+   */
+  saml: RequiredSamlConfig;
+
+  /**
+   * Session configuration - only required fields need to be provided
+   */
+  session: RequiredSessionConfig;
+}
+
+/**
+ * Optional authentication configuration with sensible defaults
+ */
+export interface OptionalAuthConfig {
+  /**
+   * Optional SAML configuration (will use sensible defaults)
+   */
+  saml?: OptionalSamlConfig;
+
+  /**
+   * Optional session configuration (will use sensible defaults)
+   */
+  session?: OptionalSessionConfig;
+
+  /**
+   * Custom logger implementation
+   * @default DefaultLogger
+   */
+  logger?: Logger;
+
+  /**
+   * Enable verbose logging for debugging
+   * @default false
+   */
+  verbose?: boolean;
+
+  /**
+   * Authentication event callbacks
+   */
+  callbacks?: AuthCallbacks;
+}
+
+/**
+ * Complete authentication configuration (combines required and optional)
+ *
+ * @example
+ * ```typescript
+ * // Minimal configuration (only required fields)
+ * const config = {
+ *   saml: {
+ *     issuer: 'your-entity-id',
+ *     idpCert: 'your-certificate',
+ *     returnToOrigin: 'https://your-app.com'
+ *   },
+ *   session: {
+ *     name: 'my-session',
+ *     secret: 'your-32-character-secret-key!!'
+ *   }
+ * };
+ *
+ * // With optional configurations
+ * const configWithOptions = {
+ *   saml: {
+ *     issuer: 'your-entity-id',
+ *     idpCert: 'your-certificate',
+ *     returnToOrigin: 'https://your-app.com',
+ *     // Optional: customize service provider URL
+ *     serviceProviderLoginUrl: 'https://custom-sso.stanford.edu/login'
+ *   },
+ *   session: {
+ *     name: 'my-session',
+ *     secret: 'your-32-character-secret-key!!',
+ *     // Optional: customize cookie settings
+ *     cookie: {
+ *       secure: true,
+ *       sameSite: 'strict'
+ *     }
+ *   },
+ *   // Optional: enable debug logging
+ *   verbose: true,
+ *   // Optional: customize user mapping
+ *   callbacks: {
+ *     mapProfile: (profile) => ({
+ *       id: profile.encodedSUID,
+ *       email: `${profile.userName}@stanford.edu`
+ *     })
+ *   }
+ * };
+ * ```
+ */
+export type AuthConfig = RequiredAuthConfig & OptionalAuthConfig;
+
+/**
+ * Callbacks for customizing authentication behavior
+ */
+export type AuthCallbacks = {
+  /**
+   * Called after successful SAML authentication to map SAML profile to User
+   */
+  mapProfile?: (profile: SAMLProfile) => Promise<User> | User;
+
+  /**
+   * Called when creating/updating session to enrich session data
+   */
+  session?: (params: {
+    session: Session;
+    user: User;
+    req: Request;
+  }) => Promise<Session> | Session;
+
+  /**
+   * Called on authentication events
+   */
+  signIn?: (params: { user: User; profile: SAMLProfile }) => Promise<void> | void;
+  signOut?: (params: { session: Session }) => Promise<void> | void;
+};
+
+/**
+ * Login options
+ */
+export type LoginOptions = {
   returnTo?: string;
-  finalDestination?: string;
-  [key: string]: string;
+  [key: string]: unknown;
+};
+
+/**
+ * Authentication options for ACS
+ */
+export type AuthenticateOptions = {
+  req: Request;
+  callbacks?: AuthCallbacks;
+};
+
+/**
+ * Logout options
+ */
+export type LogoutOptions = {
+  slo?: boolean; // Single Logout
+  redirectTo?: string;
+};
+
+/**
+ * SAML Response structure from Stanford
+ */
+export type SAMLResponseAttributes = {
+  firstName?: string;
+  lastName?: string;
+  'oracle:cloud:identity:sessionid': string;
+  encodedSUID: string;
+  suid?: string;
+  'oracle:cloud:identity:url': string;
+  userName: string;
+  [key: string]: unknown;
+};
+
+/**
+ * Extended SAML Profile with Stanford-specific attributes
+ */
+export type SAMLProfile = {
+  inResponseTo?: string;
+  issuer?: string;
+  nameID?: string;
+  nameIDFormat?: string;
+  sessionIndex?: string;
+  attributes?: SAMLResponseAttributes;
+  [key: string]: unknown;
+} & SAMLResponseAttributes;
+
+/**
+ * SAML Response result
+ */
+export type SAMLResponse = {
+  profile?: SAMLProfile;
+  loggedOut?: boolean;
+};
+
+/**
+ * Error types
+ */
+export class AuthError extends Error {
+  public code: string;
+  public statusCode: number;
+
+  constructor(message: string, code: string, statusCode = 500) {
+    super(message);
+    this.name = 'AuthError';
+    this.code = code;
+    this.statusCode = statusCode;
+  }
 }
-export interface SamlUserReqExtender {
-  user: AuthUser;
-  samlRelayState: SamlRelayState;
+
+/**
+ * Context passed to route handlers
+ */
+export type AuthContext = {
+  session?: Session;
+  user?: User;
+  isAuthenticated: boolean;
+};
+
+/**
+ * Route handler type
+ */
+export type RouteHandler = (
+  req: Request,
+  context: AuthContext
+) => Promise<Response> | Response;
+
+/**
+ * Required configuration for AdaptNext (minimal fields developers must provide)
+ */
+export interface RequiredAdaptNextConfig {
+  /**
+   * SAML configuration - only required fields need to be provided
+   */
+  saml: RequiredSamlConfig;
+
+  /**
+   * Session configuration - only required fields need to be provided
+   */
+  session: RequiredSessionConfig;
 }
-export type WithSamlUser<R extends {}> = R & SamlUserReqExtender;
-export type SamlUserRequest = WithSamlUser<Request>;
+
+/**
+ * Optional configuration for AdaptNext with sensible defaults
+ */
+export interface OptionalAdaptNextConfig {
+  /**
+   * Optional SAML configuration (will use sensible defaults)
+   */
+  saml?: OptionalSamlConfig;
+
+  /**
+   * Optional session configuration (will use sensible defaults)
+   */
+  session?: OptionalSessionConfig;
+
+  /**
+   * Custom logger implementation
+   * @default DefaultLogger
+   */
+  logger?: Logger;
+
+  /**
+   * Enable verbose logging for debugging
+   * @default false
+   */
+  verbose?: boolean;
+
+  /**
+   * Authentication event callbacks
+   */
+  callbacks?: AuthCallbacks;
+}
+
+/**
+ * Complete configuration for AdaptNext (combines required and optional)
+ */
+export type AdaptNextConfig = RequiredAdaptNextConfig & OptionalAdaptNextConfig;
