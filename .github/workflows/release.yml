@@ -14,6 +14,9 @@ jobs:
     name: Release
     timeout-minutes: 10
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
 
     # Only run on merged PRs with an appropriate label.
     if: |
@@ -101,3 +104,33 @@ jobs:
           from_branch: main
           target_branch: dev
           github_token: ${{ secrets.ADMIN_GITHUB_TOKEN }}
+
+      # Set up Node.js for npm publishing
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Install dependencies and build the package
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build package
+        run: npm run build
+
+      # Publish to npm with appropriate tag
+      - name: Publish to npm (latest)
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'alpha') && !contains(github.event.pull_request.labels.*.name, 'beta') && !contains(github.event.pull_request.labels.*.name, 'rc') }}
+        run: npm publish --provenance --access public
+
+      - name: Publish to npm (prerelease)
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'alpha') || contains(github.event.pull_request.labels.*.name, 'beta') || contains(github.event.pull_request.labels.*.name, 'rc') }}
+        run: |
+          if [[ "${{ contains(github.event.pull_request.labels.*.name, 'alpha') }}" == "true" ]]; then
+            npm publish --tag alpha --provenance --access public
+          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'beta') }}" == "true" ]]; then
+            npm publish --tag beta --provenance --access public
+          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'rc') }}" == "true" ]]; then
+            npm publish --tag rc --provenance --access public
+          fi
