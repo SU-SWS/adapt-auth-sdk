@@ -105,12 +105,21 @@ jobs:
           target_branch: dev
           github_token: ${{ secrets.ADMIN_GITHUB_TOKEN }}
 
-      # Set up Node.js for npm publishing
+      # Read Node.js version from .nvmrc
+      - name: Read .nvmrc
+        id: nvmrc
+        run: echo "node-version=$(cat .nvmrc)" >> $GITHUB_OUTPUT
+
+      # Set up Node.js for npm publishing with OIDC trusted publishing
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: ${{ steps.nvmrc.outputs.node-version }}
           registry-url: 'https://registry.npmjs.org'
+
+      # Ensure npm 11.5.1+ for OIDC trusted publishing support
+      - name: Update npm for trusted publishing
+        run: npm install -g npm@latest
 
       # Install dependencies and build the package
       - name: Install dependencies
@@ -119,18 +128,19 @@ jobs:
       - name: Build package
         run: npm run build
 
-      # Publish to npm with appropriate tag
+      # Publish to npm using OIDC trusted publishing (no token needed)
+      # Provenance is automatically generated with trusted publishing
       - name: Publish to npm (latest)
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'alpha') && !contains(github.event.pull_request.labels.*.name, 'beta') && !contains(github.event.pull_request.labels.*.name, 'rc') }}
-        run: npm publish --provenance --access public
+        run: npm publish --access public
 
       - name: Publish to npm (prerelease)
         if: ${{ contains(github.event.pull_request.labels.*.name, 'alpha') || contains(github.event.pull_request.labels.*.name, 'beta') || contains(github.event.pull_request.labels.*.name, 'rc') }}
         run: |
           if [[ "${{ contains(github.event.pull_request.labels.*.name, 'alpha') }}" == "true" ]]; then
-            npm publish --tag alpha --provenance --access public
+            npm publish --tag alpha --access public
           elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'beta') }}" == "true" ]]; then
-            npm publish --tag beta --provenance --access public
+            npm publish --tag beta --access public
           elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'rc') }}" == "true" ]]; then
-            npm publish --tag rc --provenance --access public
+            npm publish --tag rc --access public
           fi
