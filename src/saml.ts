@@ -231,8 +231,10 @@ export class SAMLProvider {
       const { finalDestination, ...additionalParams } = options;
       const destinationPath = finalDestination || this.config.callbackPath || '/';
 
-      // Build RelayState payload - only include return_to if finalDestination is set
-      const payload: RelayStatePayload = {};
+      // Build RelayState payload - include entity and return_to if finalDestination is set
+      const payload: RelayStatePayload = {
+        entity: this.config.issuer,
+      };
       if (finalDestination) {
         payload.return_to = finalDestination as string;
       }

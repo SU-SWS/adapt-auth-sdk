@@ -42,6 +42,7 @@ export type Session = {
  * Uses return_to key for backward compatibility with the external SSO protocol.
  */
 export interface RelayStatePayload {
+  entity?: string;
   return_to?: string;
 }
 
