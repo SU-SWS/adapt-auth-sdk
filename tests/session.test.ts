@@ -28,7 +28,7 @@ describe('SessionManager', () => {
     cookie: {
       httpOnly: true,
       secure: true,
-      sameSite: 'lax' as const,
+      sameSite: 'strict' as const,
       path: '/',
       maxAge: 86400
     }
@@ -172,7 +172,7 @@ describe('SessionManager', () => {
         expect.objectContaining({
           httpOnly: false,
           secure: true,
-          sameSite: 'lax',
+          sameSite: 'strict',
           path: '/'
         })
       );
@@ -485,7 +485,7 @@ describe('createWebCookieStore', () => {
     store.set('new-cookie', 'new-value', {
       httpOnly: true,
       secure: true,
-      sameSite: 'lax',
+      sameSite: 'strict',
       path: '/',
       maxAge: 3600
     });
@@ -494,7 +494,7 @@ describe('createWebCookieStore', () => {
     expect(setCookieHeader).toContain('new-cookie=new-value');
     expect(setCookieHeader).toContain('HttpOnly');
     expect(setCookieHeader).toContain('Secure');
-    expect(setCookieHeader).toContain('SameSite=lax');
+    expect(setCookieHeader).toContain('SameSite=strict');
     expect(setCookieHeader).toContain('Path=/');
     expect(setCookieHeader).toContain('Max-Age=3600');
   });

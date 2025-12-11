@@ -95,7 +95,7 @@ export const auth = createAdaptNext({
     cookie: {
       httpOnly: true,
       secure: true,
-      sameSite: 'lax',
+      sameSite: 'strict',
       path: '/',
       maxAge: 86400, // 1 day
     },

@@ -52,7 +52,7 @@ const auth = createAdaptNext({
     cookie: {
       httpOnly: true,
       secure: true,
-      sameSite: 'lax',
+      sameSite: 'strict',
       path: '/',
     },
     cookieSizeThreshold: 3500, // Warn if cookie exceeds this size
