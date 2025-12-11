@@ -172,7 +172,7 @@ describe('SessionManager', () => {
         expect.objectContaining({
           httpOnly: false,
           secure: true,
-          sameSite: 'lax',
+          sameSite: 'strict',
           path: '/'
         })
       );
