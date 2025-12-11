@@ -18,7 +18,7 @@
  *   saml: {
  *     issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
  *     idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
- *     returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!
+ *     callbackOrigin: process.env.ADAPT_AUTH_SAML_CALLBACK_ORIGIN!
  *   },
  *   session: {
  *     name: 'adapt-auth-session',

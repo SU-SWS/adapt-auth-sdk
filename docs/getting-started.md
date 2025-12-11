@@ -26,7 +26,7 @@ export const auth = createAdaptNext({
   saml: {
     issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
     idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
-    returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!,
+    callbackOrigin: process.env.ADAPT_AUTH_SAML_CALLBACK_ORIGIN!,
   },
   session: {
     name: 'adapt-auth-session',
@@ -39,7 +39,7 @@ export const auth = createAdaptNext({
 import { auth } from '../../config';
 
 export async function GET() {
-  return await auth.login({ returnTo: '/dashboard' });
+  return await auth.login({ finalDestination: '/dashboard' });
 }
 
 // app/api/auth/acs/route.ts
@@ -49,7 +49,7 @@ import { auth } from '@/utils/authInstance';
 export async function POST(request: NextRequest) {
   // v2 uses 'authenticate' method for handling SAML callback
   try {
-    const { returnTo } = await auth.authenticate(request);
+    const { finalDestination } = await auth.authenticate(request);
 
     // Get the current session to access user data
     const session = await auth.getSession();
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       // Do something with the user.
     }
 
-    const redirectUrl = returnTo || '/';
+    const redirectUrl = finalDestination || '/';
     return Response.redirect(new URL(redirectUrl, request.url));
 
   } catch (error) {
@@ -105,19 +105,19 @@ app.use(express.urlencoded({ extended: true }));
 const samlProvider = new SAMLProvider({
   issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
   idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
-  returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!,
+  callbackOrigin: process.env.ADAPT_AUTH_SAML_CALLBACK_ORIGIN!,
 });
 
 // Login route
 app.get('/auth/login', async (req, res) => {
-  const loginUrl = await samlProvider.getLoginUrl({ returnTo: '/dashboard' });
+  const loginUrl = await samlProvider.getLoginUrl({ finalDestination: '/dashboard' });
   res.redirect(loginUrl);
 });
 
 // SAML callback (ACS)
 app.post('/auth/callback', async (req, res) => {
   try {
-    const { user, returnTo } = await samlProvider.authenticate({ req });
+    const { user, finalDestination } = await samlProvider.authenticate({ req });
 
     const cookieStore = createExpressCookieStore(req, res);
     const sessionManager = new SessionManager(cookieStore, {
@@ -126,7 +126,7 @@ app.post('/auth/callback', async (req, res) => {
     });
 
     await sessionManager.createSession(user);
-    res.redirect(returnTo || '/dashboard');
+    res.redirect(finalDestination || '/dashboard');
   } catch (error) {
     res.redirect('/login?error=auth_failed');
   }

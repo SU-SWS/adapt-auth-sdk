@@ -16,7 +16,7 @@ npm install adapt-auth-sdk
 # .env.local
 ADAPT_AUTH_SAML_ENTITY=your-entity-id
 ADAPT_AUTH_SAML_CERT=your-certificate-string
-ADAPT_AUTH_SAML_RETURN_ORIGIN=http://localhost:3000
+ADAPT_AUTH_SAML_CALLBACK_ORIGIN=http://localhost:3000
 ADAPT_AUTH_SESSION_SECRET=your-32-character-secret-key-min
 ```
 
@@ -93,9 +93,9 @@ import { auth } from '@/lib/auth';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const returnTo = url.searchParams.get('returnTo') || '/';
+  const finalDestination = url.searchParams.get('returnTo') || '/';
 
-  return auth.login({ returnTo });
+  return auth.login({ finalDestination });
 }
 ```
 
@@ -391,7 +391,7 @@ export const auth = createAdaptNext({
   saml: {
     issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
     idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
-    returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!,
+    callbackOrigin: process.env.ADAPT_AUTH_SAML_CALLBACK_ORIGIN!,
   },
   session: {
     name: 'adapt-auth-session',

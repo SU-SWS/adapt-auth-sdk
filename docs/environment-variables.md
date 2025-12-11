@@ -36,16 +36,16 @@ MIIDBjCCAe4CAQAwDQYJKoZIhvcNAQEFBQAwSjELMAkGA1UEBhMC...
 -----END CERTIFICATE-----"
 ```
 
-### `ADAPT_AUTH_SAML_RETURN_ORIGIN`
+### `ADAPT_AUTH_SAML_CALLBACK_ORIGIN`
 
-**Description**: The base URL of your application where users will be returned after authentication  
+**Description**: The base URL of your application where the IdP will post SAML responses (callback origin)  
 **Type**: `string` (URL)  
 **Required**: Yes (if not provided in config)  
 **Example**: `https://your-app.com`  
 **Note**: Used to construct the Assertion Consumer Service (ACS) URL  
 
 ```bash
-ADAPT_AUTH_SAML_RETURN_ORIGIN="https://your-app.com"
+ADAPT_AUTH_SAML_CALLBACK_ORIGIN="https://your-app.com"
 ```
 
 ### `ADAPT_AUTH_SESSION_SECRET`
@@ -76,16 +76,16 @@ ADAPT_AUTH_SESSION_SECRET="your-32-character-minimum-secret-key-here"
 ADAPT_AUTH_SAML_SP_URL="https://adapt-sso-uat.stanford.edu/api/sso/login"
 ```
 
-#### `ADAPT_AUTH_SAML_RETURN_PATH`
+#### `ADAPT_AUTH_SAML_CALLBACK_PATH`
 
-**Description**: Path component for the Assertion Consumer Service (ACS) URL  
+**Description**: Path component for the Assertion Consumer Service (ACS) URL (IdP callback path)  
 **Type**: `string`  
 **Default**: `''` (empty string)  
 **Example**: `/api/auth/callback`  
-**Full URL**: `{ADAPT_AUTH_SAML_RETURN_ORIGIN}{ADAPT_AUTH_SAML_RETURN_PATH}`  
+**Full URL**: `{ADAPT_AUTH_SAML_CALLBACK_ORIGIN}{ADAPT_AUTH_SAML_CALLBACK_PATH}`  
 
 ```bash
-ADAPT_AUTH_SAML_RETURN_PATH="/api/auth/callback"
+ADAPT_AUTH_SAML_CALLBACK_PATH="/api/auth/callback"
 ```
 
 #### `ADAPT_AUTH_SAML_PRIVATE_KEY`
