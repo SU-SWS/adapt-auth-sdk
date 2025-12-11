@@ -18,7 +18,31 @@ Version 2.1 introduces clearer naming conventions to distinguish between the **c
 | Authenticate result | `returnTo` | `finalDestination` |
 | Environment variable | `ADAPT_AUTH_SAML_RETURN_ORIGIN` | `ADAPT_AUTH_SAML_CALLBACK_ORIGIN` |
 | Environment variable | `ADAPT_AUTH_SAML_RETURN_PATH` | `ADAPT_AUTH_SAML_CALLBACK_PATH` |
-| RelayState payload key | `return_to` | `return_to` *(unchanged)* |
+| RelayState payload | `{ return_to: string }` | `{ entity, returnTo, finalDestination }` |
+
+### ⚠️ Breaking Change: RelayState Payload Structure
+
+If your code manually parses or generates RelayState, be aware of these changes:
+
+```typescript
+// v2.0 RelayState payload (snake_case, simple)
+interface RelayStatePayload {
+  return_to?: string;  // Final destination URL
+}
+
+// v2.1 RelayState payload (camelCase, expanded)
+interface RelayStatePayload {
+  entity?: string;           // SAML entity ID
+  returnTo?: string;         // Callback URL (where IdP posts back)
+  finalDestination?: string; // Where user goes after auth
+}
+```
+
+**Key differences:**
+- `return_to` → renamed to `finalDestination` (camelCase)
+- New `returnTo` field contains the **callback URL** (ACS endpoint), not the final destination
+- New `entity` field contains the SAML entity ID
+- All keys are now camelCase for consistency
 
 ### Why the Change?
 
@@ -118,6 +142,7 @@ const samlProvider = new SAMLProvider({
 - [ ] Update `ADAPT_AUTH_SAML_RETURN_PATH` → `ADAPT_AUTH_SAML_CALLBACK_PATH` in environment (if used)
 - [ ] Update `returnTo` → `finalDestination` in `login()` options
 - [ ] Update `returnTo` → `finalDestination` in `authenticate()` result destructuring
+- [ ] Update any code that manually parses RelayState (structure changed significantly)
 - [ ] Search codebase for any remaining `returnTo` references in auth-related code
 
 ### TypeScript Type Changes
