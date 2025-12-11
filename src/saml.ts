@@ -229,7 +229,9 @@ export class SAMLProvider {
   async getLoginUrl(options: LoginOptions = {}): Promise<string> {
     try {
       const { finalDestination, ...additionalParams } = options;
-      const destinationPath = finalDestination || this.config.callbackPath || '/';
+      // Default to root path if no finalDestination provided
+      // Note: callbackPath is for the ACS endpoint, not a user destination
+      const destinationPath = finalDestination || '/';
 
       // Build RelayState payload
       const callbackUrl = new URL(this.config.callbackPath, this.config.callbackOrigin).toString();
