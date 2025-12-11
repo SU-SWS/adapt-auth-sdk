@@ -177,7 +177,7 @@ describe('AdaptNext', () => {
     saml: {
       issuer: 'test-issuer',
       idpCert: 'test-cert',
-      returnToOrigin: 'https://test.com'
+      callbackOrigin: 'https://test.com'
     },
     session: {
       name: 'test-session',
@@ -230,7 +230,7 @@ describe('AdaptNext', () => {
         expect.objectContaining({
           issuer: 'test-issuer',
           idpCert: 'test-cert',
-          returnToOrigin: 'https://test.com'
+          callbackOrigin: 'https://test.com'
         }),
         expect.any(Object)
       );
@@ -310,7 +310,7 @@ describe('AdaptNext', () => {
       const mockResponse = new Response('', { status: 302 });
       mockSamlProvider.login.mockResolvedValue(mockResponse);
 
-      const options = { returnTo: '/dashboard' };
+      const options = { finalDestination: '/dashboard' };
       const result = await adaptNext.login(options);
 
       expect(mockSamlProvider.login).toHaveBeenCalledWith(options);
@@ -334,7 +334,7 @@ describe('AdaptNext', () => {
       mockSamlProvider.authenticate.mockResolvedValue({
         user: testUser,
         profile: {} as any,
-        returnTo: '/dashboard'
+        finalDestination: '/dashboard'
       });
 
       mockSessionManager.createSession.mockResolvedValue(testSession);
@@ -349,7 +349,7 @@ describe('AdaptNext', () => {
       expect(result).toEqual({
         user: testUser,
         session: testSession,
-        returnTo: '/dashboard'
+        finalDestination: '/dashboard'
       });
     });
 
@@ -528,7 +528,7 @@ describe('AdaptNext', () => {
     it('should delegate to SAML provider', async () => {
       mockSamlProvider.getLoginUrl.mockResolvedValue('https://idp.stanford.edu/login?...');
 
-      const options = { returnTo: '/dashboard' };
+      const options = { finalDestination: '/dashboard' };
       const result = await adaptNext.getLoginUrl(options);
 
       expect(mockSamlProvider.getLoginUrl).toHaveBeenCalledWith(options);
@@ -607,7 +607,7 @@ describe('createAdaptNext factory function', () => {
       saml: {
         issuer: 'test-issuer',
         idpCert: 'test-cert',
-        returnToOrigin: 'https://test.com'
+        callbackOrigin: 'https://test.com'
       },
       session: {
         name: 'test-session',

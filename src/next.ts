@@ -219,7 +219,7 @@ export interface OptionalAdaptNextConfig {
  *   saml: {
  *     issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
  *     idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
- *     returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!
+ *     callbackOrigin: process.env.ADAPT_AUTH_SAML_CALLBACK_ORIGIN!
  *   },
  *   session: {
  *     name: 'adapt-auth-session',
@@ -252,7 +252,7 @@ export type AdaptNextConfig = RequiredAdaptNextConfig & OptionalAdaptNextConfig;
  *   saml: {
  *     issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
  *     idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
- *     returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!
+ *     callbackOrigin: process.env.ADAPT_AUTH_SAML_CALLBACK_ORIGIN!
  *   },
  *   session: {
  *     name: 'adapt-auth-session',
@@ -262,12 +262,12 @@ export type AdaptNextConfig = RequiredAdaptNextConfig & OptionalAdaptNextConfig;
  *
  * // In route handlers
  * export async function GET() {
- *   return auth.login({ returnTo: '/dashboard' });
+ *   return auth.login({ finalDestination: '/dashboard' });
  * }
  *
  * export async function POST(request: Request) {
- *   const { user, returnTo } = await auth.authenticate(request);
- *   return Response.redirect(returnTo || '/dashboard');
+ *   const { user, finalDestination } = await auth.authenticate(request);
+ *   return Response.redirect(finalDestination || '/dashboard');
  * }
  * ```
  */
@@ -292,7 +292,7 @@ export class AdaptNext {
    *   saml: {
    *     issuer: 'my-app-entity-id',
    *     idpCert: process.env.SAML_CERT,
-   *     returnToOrigin: 'https://myapp.com'
+   *     callbackOrigin: 'https://myapp.com'
    *   },
    *   session: {
    *     name: 'my-session',
@@ -387,14 +387,14 @@ export class AdaptNext {
    *
    * Redirects user to Auth Middleware (ADAPT-SSO) for authentication.
    *
-   * @param options - Login options including returnTo URL
+   * @param options - Login options including finalDestination path
    * @returns Promise resolving to redirect Response to IdP login page
    *
    * @example
    * ```typescript
    * // app/login/route.ts
    * export async function GET() {
-   *   return auth.login({ returnTo: '/dashboard' });
+   *   return auth.login({ finalDestination: '/dashboard' });
    * }
    * ```
    */
@@ -409,7 +409,7 @@ export class AdaptNext {
    * Processes the SAML response from the IDP and creates a session.
    *
    * @param request - HTTP Request containing SAML response
-   * @returns Promise resolving to authenticated user, session, and returnTo URL
+   * @returns Promise resolving to authenticated user, session, and finalDestination path
    *
    * @throws {AuthError} If SAML authentication fails
    *
@@ -418,8 +418,8 @@ export class AdaptNext {
    * // app/auth/acs/route.ts
    * export async function POST(request: Request) {
    *   try {
-   *     const { user, returnTo } = await auth.authenticate(request);
-   *     return Response.redirect(returnTo || '/dashboard');
+   *     const { user, finalDestination } = await auth.authenticate(request);
+   *     return Response.redirect(finalDestination || '/dashboard');
    *   } catch (error) {
    *     return Response.redirect('/login?error=auth_failed');
    *   }
@@ -429,12 +429,12 @@ export class AdaptNext {
   async authenticate(request: Request): Promise<{
     user: User;
     session: Session;
-    returnTo?: string;
+    finalDestination?: string;
   }> {
     this.assertServerEnvironment('authenticate');
 
     // Authenticate with SAML (let SAMLProvider handle its own error logging)
-    const { user, returnTo } = await this.samlProvider.authenticate({
+    const { user, finalDestination } = await this.samlProvider.authenticate({
       req: request,
       callbacks: this.callbacks,
     });
@@ -448,7 +448,7 @@ export class AdaptNext {
       await this.callbacks.session({ session, user, req: request });
     }
 
-    return { user, session, returnTo };
+    return { user, session, finalDestination };
   }
 
   /**
@@ -623,14 +623,14 @@ export class AdaptNext {
    *
    * Generates the login URL for custom redirect handling.
    *
-   * @param options - Login options including returnTo URL
+   * @param options - Login options including finalDestination path
    * @returns Promise resolving to the complete login URL
    *
    * @example
    * ```typescript
    * // Custom login handling
    * export async function GET() {
-   *   const loginUrl = await auth.getLoginUrl({ returnTo: '/dashboard' });
+   *   const loginUrl = await auth.getLoginUrl({ finalDestination: '/dashboard' });
    *
    *   // Log login attempt
    *   console.log('Redirecting to:', loginUrl);
@@ -731,7 +731,7 @@ export class AdaptNext {
  *   saml: {
  *     issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
  *     idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
- *     returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!
+ *     callbackOrigin: process.env.ADAPT_AUTH_SAML_CALLBACK_ORIGIN!
  *   },
  *   session: {
  *     name: 'adapt-auth-session',

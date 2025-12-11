@@ -11,7 +11,7 @@ import { SAMLProvider, SessionManager } from 'adapt-auth-sdk';
 const samlConfig = {
   issuer: process.env.ADAPT_AUTH_SAML_ENTITY,
   idpCert: process.env.ADAPT_AUTH_SAML_CERT,
-  returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN,
+  callbackOrigin: process.env.ADAPT_AUTH_SAML_CALLBACK_ORIGIN,
 };
 
 const sessionConfig = {
@@ -28,7 +28,7 @@ export { sessionConfig };
 ```bash
 ADAPT_AUTH_SAML_ENTITY="your-entity-id"
 ADAPT_AUTH_SAML_CERT="-----BEGIN CERTIFICATE-----...-----END CERTIFICATE-----"
-ADAPT_AUTH_SAML_RETURN_ORIGIN="http://localhost:8000"
+ADAPT_AUTH_SAML_CALLBACK_ORIGIN="http://localhost:8000"
 ADAPT_AUTH_SESSION_SECRET="your-32-character-secret-key"
 ```
 
@@ -45,7 +45,7 @@ export default async function handler(req, res) {
 
   try {
     const { redirectUrl } = await samlProvider.login({
-      returnTo: req.query.returnTo || '/'
+      finalDestination: req.query.returnTo || '/'
     });
     
     return res.redirect(redirectUrl);
@@ -72,7 +72,7 @@ export default async function handler(req, res) {
       body: new URLSearchParams(req.body).toString(),
     });
 
-    const { user, returnTo } = await samlProvider.authenticate({
+    const { user, finalDestination } = await samlProvider.authenticate({
       req: request
     });
 
@@ -81,7 +81,7 @@ export default async function handler(req, res) {
     
     await sessionManager.createSession(user);
 
-    return res.redirect(returnTo || '/');
+    return res.redirect(finalDestination || '/');
   } catch (error) {
     return res.redirect('/login?error=auth_failed');
   }

@@ -14,7 +14,7 @@ export const auth = createAdaptNext({
   saml: {
     issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
     idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
-    returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!
+    callbackOrigin: process.env.ADAPT_AUTH_SAML_CALLBACK_ORIGIN!
   },
   session: {
     name: 'adapt-auth-session',
@@ -45,7 +45,7 @@ import { createAdaptNext } from 'adapt-auth-sdk'; // Next.js removed from main e
 import { auth } from '@/lib/auth'; // Uses 'adapt-auth-sdk/next'
 
 export async function GET() {
-  return auth.login({ returnTo: '/dashboard' });
+  return auth.login({ finalDestination: '/dashboard' });
 }
 ```
 
@@ -56,8 +56,8 @@ import { auth } from '@/lib/auth';
 
 export async function POST(request: Request) {
   try {
-    const { user, returnTo } = await auth.authenticate(request);
-    return Response.redirect(returnTo || '/dashboard');
+    const { user, finalDestination } = await auth.authenticate(request);
+    return Response.redirect(finalDestination || '/dashboard');
   } catch (error) {
     console.error('Authentication failed:', error);
     return Response.redirect('/login?error=auth_failed');

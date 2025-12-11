@@ -38,9 +38,15 @@ export type Session = {
 
 /**
  * RelayState payload structure
+ *
+ * - entity: The SAML entity identifier
+ * - returnTo: The callback URL where IdP posts SAML response
+ * - finalDestination: Where user redirects after authentication
  */
 export interface RelayStatePayload {
-  return_to?: string;
+  entity?: string;
+  returnTo?: string;
+  finalDestination?: string;
 }
 
 /**
@@ -70,7 +76,7 @@ export interface RequiredSamlConfig {
   /**
    * Base URL of your application where SAML responses are received (required)
    */
-  returnToOrigin: string;
+  callbackOrigin: string;
 }
 
 /**
@@ -87,13 +93,7 @@ export interface OptionalSamlConfig {
    * Path component for ACS (Assertion Consumer Service) URL
    * @default ''
    */
-  returnToPath?: string;
-
-  /**
-   * Whether to include returnTo URL in RelayState for post-login redirects
-   * @default true
-   */
-  includeReturnTo?: boolean;
+  callbackPath?: string;
 
   /**
    * Private key for SAML signing (if different from idpCert)
@@ -378,7 +378,7 @@ export type AuthCallbacks = {
  * Login options
  */
 export type LoginOptions = {
-  returnTo?: string;
+  finalDestination?: string;
   [key: string]: unknown;
 };
 

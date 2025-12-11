@@ -23,7 +23,7 @@ describe('SessionManager.sealSession', () => {
     cookie: {
       httpOnly: true,
       secure: true,
-      sameSite: 'lax' as const,
+      sameSite: 'strict' as const,
       path: '/',
       maxAge: 86400
     }

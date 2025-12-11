@@ -37,8 +37,6 @@ Login: Build AuthnRequest → redirect to IdP. Generate RelayState as simple JSO
 type RelayStatePayload = { return_to?: string };
 // Stored as: JSON.stringify(payload)
 
-If includeReturnTo, set return_to to the URL that initiated login (sanitize + allow-list same-origin).
-
 Store no server state; validate at ACS by sanitizing return_to URLs.
 
 ACS:

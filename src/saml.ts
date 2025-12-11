@@ -8,7 +8,7 @@
  * - AuthnRequest generation with RelayState
  * - SAML Response validation and signature verification
  * - User profile mapping from SAML attributes
- * - Secure returnTo URL handling
+ * - Secure final destination path handling
  *
  * The implementation uses @node-saml/node-saml for SAML protocol handling
  * and provides Stanford-specific defaults and attribute mapping.
@@ -38,11 +38,11 @@ import { DefaultLogger } from './logger.js';
  * 1. Generate AuthnRequest and redirect to Stanford Pass
  * 2. Receive and validate SAML Response from IdP
  * 3. Map SAML attributes to user profile
- * 4. Handle RelayState for returnTo functionality
+ * 4. Handle RelayState for final destination path
  *
  * Features:
  * - SP-initiated authentication only (IdP-initiated not supported)
- * - RelayState-based returnTo URL handling
+ * - RelayState-based final destination handling
  * - Configurable certificate validation
  * - Stanford-specific attribute mapping
  * - Comprehensive error handling and logging
@@ -52,11 +52,11 @@ import { DefaultLogger } from './logger.js';
  * const samlProvider = new SAMLProvider({
  *   issuer: 'my-app-entity-id',
  *   idpCert: process.env.ADAPT_AUTH_SAML_CERT,
- *   returnToOrigin: 'https://myapp.com'
+ *   callbackOrigin: 'https://myapp.com'
  * });
  *
  * // Redirect to login
- * const response = await samlProvider.login({ returnTo: '/dashboard' });
+ * const response = await samlProvider.login({ finalDestination: '/dashboard' });
  *
  * // Handle callback
  * const { user } = await samlProvider.authenticate({ req: request });
@@ -84,14 +84,14 @@ export class SAMLProvider {
    * const provider = new SAMLProvider({
    *   issuer: 'my-app',
    *   idpCert: certString,
-   *   returnToOrigin: 'https://myapp.com'
+   *   callbackOrigin: 'https://myapp.com'
    * });
    *
    * // With custom options
    * const provider = new SAMLProvider({
    *   issuer: 'my-app',
    *   idpCert: certString,
-   *   returnToOrigin: 'https://myapp.com',
+   *   callbackOrigin: 'https://myapp.com',
    *   wantAssertionsSigned: true,
    *   acceptedClockSkewMs: 30000
    * }, customLogger);
@@ -105,7 +105,7 @@ export class SAMLProvider {
       // Required fields (must be provided)
       issuer: config.issuer || process.env.ADAPT_AUTH_SAML_ENTITY,
       idpCert: config.idpCert || process.env.ADAPT_AUTH_SAML_CERT,
-      returnToOrigin: config.returnToOrigin || process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN,
+      callbackOrigin: config.callbackOrigin || process.env.ADAPT_AUTH_SAML_CALLBACK_ORIGIN,
 
       // Optional fields with sensible defaults
       audience: config.audience || `https://${config.issuer || process.env.ADAPT_AUTH_SAML_ENTITY || 'adapt-sso-uat'}.stanford.edu`,
@@ -114,10 +114,7 @@ export class SAMLProvider {
 
       // Service provider configuration with defaults
       serviceProviderLoginUrl: config.serviceProviderLoginUrl || process.env.ADAPT_AUTH_SAML_SP_URL || `https://${config.issuer || process.env.ADAPT_AUTH_SAML_ENTITY}.stanford.edu/api/sso/login`,
-      returnToPath: config.returnToPath || process.env.ADAPT_AUTH_SAML_RETURN_PATH || '',
-
-      // RelayState configuration with defaults
-      includeReturnTo: config.includeReturnTo ?? true,
+      callbackPath: config.callbackPath || process.env.ADAPT_AUTH_SAML_CALLBACK_PATH || '',
 
       // SAML protocol settings with secure defaults
       signatureAlgorithm: config.signatureAlgorithm || 'sha256',
@@ -169,7 +166,7 @@ export class SAMLProvider {
       issuer: this.config.issuer,
       audience: this.config.audience,
       serviceProviderLoginUrl: this.config.serviceProviderLoginUrl,
-      returnToOrigin: this.config.returnToOrigin,
+      callbackOrigin: this.config.callbackOrigin,
     });
   }
 
@@ -203,11 +200,11 @@ export class SAMLProvider {
    *
    * Creates a Stanford Pass login URL with proper parameters:
    * - entity: The SAML entity/issuer identifier
-   * - return_to: ACS URL where SAML response will be posted
+   * - return_to: ACS callback URL where SAML response will be posted
    * - final_destination: Where user should go after authentication
-   * - RelayState: Encrypted payload containing returnTo URL (if enabled)
+   * - RelayState: Payload containing final destination path (if provided)
    *
-   * @param options - Login options including returnTo URL and additional parameters
+   * @param options - Login options including finalDestination path and additional parameters
    * @returns Promise resolving to the complete login URL
    *
    * @example
@@ -215,14 +212,14 @@ export class SAMLProvider {
    * // Basic login URL
    * const url = await samlProvider.getLoginUrl();
    *
-   * // With returnTo URL
+   * // With final destination
    * const url = await samlProvider.getLoginUrl({
-   *   returnTo: '/dashboard'
+   *   finalDestination: '/dashboard'
    * });
    *
    * // With additional parameters
    * const url = await samlProvider.getLoginUrl({
-   *   returnTo: '/admin',
+   *   finalDestination: '/admin',
    *   forceAuthn: 'true'
    * });
    * ```
@@ -231,19 +228,28 @@ export class SAMLProvider {
    */
   async getLoginUrl(options: LoginOptions = {}): Promise<string> {
     try {
-      const { returnTo, ...additionalParams } = options;
+      const { finalDestination, ...additionalParams } = options;
+      // Default to root path if no finalDestination provided
+      // Note: callbackPath is for the ACS endpoint, not a user destination
+      const destinationPath = finalDestination || '/';
+
+      // Build RelayState payload
+      const callbackUrl = new URL(this.config.callbackPath, this.config.callbackOrigin).toString();
       const payload: RelayStatePayload = {
-        return_to: returnTo || this.config.returnToPath || '/',
+        entity: this.config.issuer,
+        returnTo: callbackUrl,
       };
+      if (finalDestination) {
+        payload.finalDestination = finalDestination as string;
+      }
       const relayState = JSON.stringify(payload);
 
       // Build service provider login URL
-      const acsUrl = new URL(this.config.returnToPath, this.config.returnToOrigin).toString();
       const params = new URLSearchParams({
         entity: this.config.issuer,
-        return_to: acsUrl,
-        final_destination: returnTo || this.config.returnToPath || '/',
-        ...(relayState && { RelayState: relayState }),
+        return_to: callbackUrl,
+        final_destination: destinationPath as string,
+        RelayState: relayState,
         ...additionalParams,
       });
 
@@ -251,8 +257,8 @@ export class SAMLProvider {
 
       this.logger.debug('Generated login URL', {
         hasRelayState: !!relayState,
-        return_to: acsUrl,
-        final_destination: returnTo || this.config.returnToPath || '/',
+        callback: callbackUrl,
+        final_destination: destinationPath,
         loginUrl: loginUrl.split('?')[0], // Log URL without parameters for security
       });
 
@@ -272,14 +278,14 @@ export class SAMLProvider {
    * Generates a login URL and returns a 302 redirect Response.
    * This is a convenience method that combines getLoginUrl() with Response.redirect().
    *
-   * @param options - Login options including returnTo URL
+   * @param options - Login options including finalDestination path
    * @returns Promise resolving to a redirect Response to the IdP login page
    *
    * @example
    * ```typescript
    * // In a route handler
    * export async function GET() {
-   *   return samlProvider.login({ returnTo: '/dashboard' });
+   *   return samlProvider.login({ finalDestination: '/dashboard' });
    * }
    * ```
    */
@@ -295,12 +301,12 @@ export class SAMLProvider {
    * Validates and processes the SAML response received at the ACS endpoint:
    * 1. Extracts SAMLResponse from POST body
    * 2. Validates SAML signatures and assertions
-   * 3. Processes RelayState for returnTo URL
+   * 3. Processes RelayState for final destination path
    * 4. Maps SAML attributes to User object
    * 5. Calls authentication callbacks
    *
    * @param options - Authentication options with request and callbacks
-   * @returns Promise resolving to authenticated user, profile, and returnTo URL
+   * @returns Promise resolving to authenticated user, profile, and finalDestination path
    *
    * @throws {AuthError} If authentication fails or SAML response is invalid
    *
@@ -308,7 +314,7 @@ export class SAMLProvider {
    * ```typescript
    * // In ACS route handler
    * export async function POST(request: Request) {
-   *   const { user, profile, returnTo } = await samlProvider.authenticate({
+   *   const { user, profile, finalDestination } = await samlProvider.authenticate({
    *     req: request,
    *     callbacks: {
    *       mapProfile: (profile) => ({
@@ -321,14 +327,14 @@ export class SAMLProvider {
    *
    *   // Create session and redirect
    *   await sessionManager.createSession(user);
-   *   return Response.redirect(returnTo || '/dashboard');
+   *   return Response.redirect(finalDestination || '/dashboard');
    * }
    * ```
    */
   async authenticate(options: AuthenticateOptions): Promise<{
     user: User;
     profile: SAMLProfile;
-    returnTo?: string;
+    finalDestination?: string;
   }> {
     const { req, callbacks } = options;
 
@@ -375,10 +381,10 @@ export class SAMLProvider {
         sessionIndex: profile.sessionIndex,
       });
 
-      // Process RelayState to get returnTo URL
-      let returnTo: string | undefined;
+      // Process RelayState to get final destination path
+      let finalDestination: string | undefined;
       if (relayState) {
-        returnTo = await this.processRelayState(relayState);
+        finalDestination = await this.processRelayState(relayState);
       }
 
       // Map SAML profile to User object
@@ -396,10 +402,10 @@ export class SAMLProvider {
 
       this.logger.info('User authentication completed', {
         userId: user.id,
-        returnTo,
+        finalDestination,
       });
 
-      return { user, profile, returnTo };
+      return { user, profile, finalDestination };
 
     } catch (error) {
       this.logger.error('SAML authentication failed', {
@@ -420,19 +426,19 @@ export class SAMLProvider {
   }
 
   /**
-   * Process RelayState to extract returnTo URL
+   * Process RelayState to extract final destination path
    *
    * Parses and validates the RelayState parameter from SAML response:
    * 1. Decodes JSON payload from RelayState
-   * 2. Extracts return_to URL
-   * 3. Sanitizes URL against allowed origins
-   * 4. Returns safe URL or fallback
+   * 2. Extracts final_destination path
+   * 3. Sanitizes path to prevent open redirects
+   * 4. Returns safe path or fallback
    *
    * @param relayState - RelayState parameter from SAML response
-   * @returns Promise resolving to sanitized returnTo URL or undefined
+   * @returns Promise resolving to sanitized final destination path or undefined
    *
    * @private
-   * @security URLs are validated against allowed origins to prevent open redirects
+   * @security Paths are sanitized to prevent open redirect attacks
    */
   private async processRelayState(relayState: string): Promise<string | undefined> {
     // Parse RelayState as simple JSON
@@ -449,12 +455,12 @@ export class SAMLProvider {
       return undefined;
     }
 
-    // Sanitize return_to path
+    // Sanitize finalDestination path (where user goes after auth)
     try {
-      if (payload.return_to) {
-        const sanitized = AuthUtils.sanitizeReturnTo(payload.return_to);
+      if (payload.finalDestination) {
+        const sanitized = AuthUtils.sanitizeReturnTo(payload.finalDestination);
         if (!sanitized) {
-          this.logger.warn('Return_to path failed sanitization', { return_to: payload.return_to });
+          this.logger.warn('Final destination path failed sanitization', { finalDestination: payload.finalDestination });
           return '/';
         }
         return sanitized;

@@ -12,7 +12,7 @@ The SDK can be configured using environment variables for convenience:
 # SAML Configuration
 ADAPT_AUTH_SAML_ENTITY="your-saml-entity-id"
 ADAPT_AUTH_SAML_CERT="-----BEGIN CERTIFICATE-----..."
-ADAPT_AUTH_SAML_RETURN_ORIGIN="https://your-app.com"
+ADAPT_AUTH_SAML_CALLBACK_ORIGIN="https://your-app.com"
 
 # Session Configuration
 ADAPT_AUTH_SESSION_SECRET="your-32-character-minimum-secret"
@@ -34,12 +34,11 @@ const auth = createAdaptNext({
     // Required
     issuer: 'your-saml-entity',
     idpCert: 'your-idp-certificate',
-    returnToOrigin: 'https://your-app.com',
+    callbackOrigin: 'https://your-app.com',
 
     // Optional
     serviceProviderLoginUrl: 'https://adapt-sso-uat.stanford.edu/api/sso/login',
-    returnToPath: '/api/auth/acs',
-    includeReturnTo: true,
+    callbackPath: '/api/auth/acs',
     relayStateMaxAge: 300, // 5 minutes
 
     // SAML Protocol Options
@@ -53,7 +52,7 @@ const auth = createAdaptNext({
     cookie: {
       httpOnly: true,
       secure: true,
-      sameSite: 'lax',
+      sameSite: 'strict',
       path: '/',
     },
     cookieSizeThreshold: 3500, // Warn if cookie exceeds this size
@@ -87,15 +86,14 @@ const auth = createAdaptNext({
 |--------|------|-------------|
 | `issuer` | `string` | Your SAML entity ID - Usually a URL |
 | `idpCert` | `string` | The IdP certificate for validating SAML responses |
-| `returnToOrigin` | `string` | The base URL of your application |
+| `callbackOrigin` | `string` | The base URL of your application (where IdP posts back) |
 
 ### Optional Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `serviceProviderLoginUrl` | `string` | Stanford SP URL | URL to initiate SAML login |
-| `returnToPath` | `string` | `''` | Path component for ACS URL |
-| `includeReturnTo` | `boolean` | `true` | Include return URL in RelayState |
+| `callbackPath` | `string` | `''` | Path component for ACS URL (IdP callback path) |
 | `relayStateMaxAge` | `number` | `300` | Max age for RelayState in seconds |
 | `wantAssertionsSigned` | `boolean` | `true` | Require signed SAML assertions |
 | `wantAuthnResponseSigned` | `boolean` | `true` | Require signed SAML responses |

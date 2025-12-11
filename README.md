@@ -32,7 +32,7 @@ export const auth = createAdaptNext({
   saml: {
     issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
     idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
-    returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!,
+    callbackOrigin: process.env.ADAPT_AUTH_SAML_CALLBACK_ORIGIN!,
   },
   session: {
     name: 'adapt-auth',
@@ -50,7 +50,7 @@ import { SAMLProvider, SessionManager, createWebCookieStore } from 'adapt-auth-s
 const samlProvider = new SAMLProvider({
   issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
   idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
-  returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!,
+  callbackOrigin: process.env.ADAPT_AUTH_SAML_CALLBACK_ORIGIN!,
 });
 
 const sessionManager = new SessionManager(
@@ -72,12 +72,11 @@ export const auth = createAdaptNext({
     // Required
     issuer: process.env.ADAPT_AUTH_SAML_ENTITY!,
     idpCert: process.env.ADAPT_AUTH_SAML_CERT!,
-    returnToOrigin: process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN!,
+    callbackOrigin: process.env.ADAPT_AUTH_SAML_CALLBACK_ORIGIN!,
 
     // Optional - customize as needed
     serviceProviderLoginUrl: 'https://custom.stanford.edu/api/sso/login',
-    returnToPath: '/custom/callback',
-    includeReturnTo: true,
+    callbackPath: '/custom/callback',
     privateKey: process.env.ADAPT_AUTH_SAML_PRIVATE_KEY,
     decryptionPvk: process.env.ADAPT_AUTH_SAML_DECRYPTION_KEY,
     wantAssertionsSigned: true,
@@ -96,7 +95,7 @@ export const auth = createAdaptNext({
     cookie: {
       httpOnly: true,
       secure: true,
-      sameSite: 'lax',
+      sameSite: 'strict',
       path: '/',
       maxAge: 86400, // 1 day
     },
@@ -112,13 +111,13 @@ export const auth = createAdaptNext({
 ```typescript
 // app/api/auth/login/route.ts
 export async function GET() {
-  return auth.login({ returnTo: '/dashboard' });
+  return auth.login({ finalDestination: '/dashboard' });
 }
 
 // app/api/auth/callback/route.ts
 export async function POST(request: Request) {
-  const { user, session, returnTo } = await auth.authenticate(request);
-  const redirectUrl = returnTo || '/dashboard';
+  const { user, session, finalDestination } = await auth.authenticate(request);
+  const redirectUrl = finalDestination || '/dashboard';
   return Response.redirect(redirectUrl);
 }
 
@@ -152,7 +151,7 @@ Set these required environment variables:
 ```bash
 ADAPT_AUTH_SAML_ENTITY="your-saml-entity-id"
 ADAPT_AUTH_SAML_CERT="-----BEGIN CERTIFICATE-----..."
-ADAPT_AUTH_SAML_RETURN_ORIGIN="https://your-app.com"
+ADAPT_AUTH_SAML_CALLBACK_ORIGIN="https://your-app.com"
 ADAPT_AUTH_SESSION_SECRET="your-32-character-minimum-secret"
 ```
 
