@@ -154,19 +154,30 @@ export class SessionManager {
     config: SessionConfig,
     logger?: Logger
   ) {
+    // Build cookie options - omit maxAge entirely for session cookies
+    const cookieOptions: CookieOptions = {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict' as const,
+      path: '/',
+      ...config.cookie,
+    };
+
+    // Only set maxAge if explicitly provided via env var or config
+    // Omitting maxAge creates a session cookie (expires when browser closes)
+    // Setting maxAge to 0 would immediately expire the cookie!
+    if (process.env.ADAPT_AUTH_SESSION_EXPIRES_IN) {
+      cookieOptions.maxAge = parseInt(process.env.ADAPT_AUTH_SESSION_EXPIRES_IN, 10);
+    }
+    // config.cookie.maxAge takes precedence if explicitly set
+    if (config.cookie?.maxAge !== undefined) {
+      cookieOptions.maxAge = config.cookie.maxAge;
+    }
+
     this.config = {
       name: config.name,
       secret: config.secret,
-      cookie: {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'lax' as const,
-        path: '/',
-        maxAge: process.env.ADAPT_AUTH_SESSION_EXPIRES_IN
-          ? parseInt(process.env.ADAPT_AUTH_SESSION_EXPIRES_IN, 10)
-          : 0, // Default to browser-session cookie
-        ...config.cookie,
-      },
+      cookie: cookieOptions,
       cookieSizeThreshold: config.cookieSizeThreshold || 3500,
     };
 
@@ -567,7 +578,7 @@ export class SessionManager {
         cookie: {
           httpOnly: true,
           secure: true,
-          sameSite: 'lax' as const,
+          sameSite: 'strict' as const,
           path: '/',
           maxAge: 0,
           ...config.cookie,

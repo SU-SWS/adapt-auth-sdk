@@ -18,9 +18,9 @@ describe('SAMLProvider', () => {
   const validConfig: SamlConfig = {
     issuer: 'test-issuer',
     idpCert: 'test-certificate',
-    returnToOrigin: 'https://app.example.com',
+    callbackOrigin: 'https://app.example.com',
     serviceProviderLoginUrl: 'https://idp.example.com/sso',
-    returnToPath: '/auth/callback',
+    callbackPath: '/auth/callback',
   };
 
   const logger = new DefaultLogger();
@@ -39,11 +39,11 @@ describe('SAMLProvider', () => {
       // Clear environment variables
       const originalIssuer = process.env.ADAPT_AUTH_SAML_ENTITY;
       const originalCert = process.env.ADAPT_AUTH_SAML_CERT;
-      const originalOrigin = process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN;
+      const originalOrigin = process.env.ADAPT_AUTH_SAML_CALLBACK_ORIGIN;
 
       delete process.env.ADAPT_AUTH_SAML_ENTITY;
       delete process.env.ADAPT_AUTH_SAML_CERT;
-      delete process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN;
+      delete process.env.ADAPT_AUTH_SAML_CALLBACK_ORIGIN;
 
       expect(() => {
         new SAMLProvider({} as SamlConfig, logger);
@@ -52,7 +52,7 @@ describe('SAMLProvider', () => {
       // Restore environment variables
       if (originalIssuer) process.env.ADAPT_AUTH_SAML_ENTITY = originalIssuer;
       if (originalCert) process.env.ADAPT_AUTH_SAML_CERT = originalCert;
-      if (originalOrigin) process.env.ADAPT_AUTH_SAML_RETURN_ORIGIN = originalOrigin;
+      if (originalOrigin) process.env.ADAPT_AUTH_SAML_CALLBACK_ORIGIN = originalOrigin;
     });
 
     test('should throw AuthError for missing issuer when no env vars', () => {
@@ -85,15 +85,15 @@ describe('SAMLProvider', () => {
   });
 
   describe('getLoginUrl', () => {
-    test('should generate login URL with returnTo', async () => {
+    test('should generate login URL with finalDestination', async () => {
       const provider = new SAMLProvider(validConfig, logger);
-      const result = await provider.getLoginUrl({ returnTo: 'https://app.example.com/dashboard' });
+      const result = await provider.getLoginUrl({ finalDestination: '/dashboard' });
 
       expect(result).toContain(validConfig.serviceProviderLoginUrl);
-      expect(result).toContain('final_destination=https%3A%2F%2Fapp.example.com%2Fdashboard');
+      expect(result).toContain('final_destination=%2Fdashboard');
     });
 
-    test('should generate login URL without returnTo', async () => {
+    test('should generate login URL without finalDestination', async () => {
       const provider = new SAMLProvider(validConfig, logger);
       const result = await provider.getLoginUrl();
 
@@ -105,12 +105,12 @@ describe('SAMLProvider', () => {
     test('should include custom additional params', async () => {
       const provider = new SAMLProvider(validConfig, logger);
       const result = await provider.getLoginUrl({
-        returnTo: '/dashboard',
+        finalDestination: '/dashboard',
         customParam: 'value'
       });
 
       expect(result).toContain('customParam=value');
-    });
+    });;
   });
 
   describe('authenticate', () => {
@@ -236,12 +236,11 @@ describe('SAMLProvider', () => {
 
       // Test that the config contains all the expected fields with proper types
       expect(config.issuer).toBe(validConfig.issuer);
-      expect(config.returnToOrigin).toBe(validConfig.returnToOrigin);
-      expect(config.returnToPath).toBe(validConfig.returnToPath);
+      expect(config.callbackOrigin).toBe(validConfig.callbackOrigin);
+      expect(config.callbackPath).toBe(validConfig.callbackPath);
       expect(config.serviceProviderLoginUrl).toBe(validConfig.serviceProviderLoginUrl);
       expect(typeof config.acceptedClockSkewMs).toBe('number');
       expect(typeof config.wantAssertionsSigned).toBe('boolean');
-      expect(typeof config.includeReturnTo).toBe('boolean');
     });
   });
 });
