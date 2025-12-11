@@ -236,7 +236,7 @@ export class SAMLProvider {
         return_to: returnTo || this.config.returnToPath || '/',
       };
       const relayState = JSON.stringify(payload);
-      
+
       // Build service provider login URL
       const acsUrl = new URL(this.config.returnToPath, this.config.returnToOrigin).toString();
       const params = new URLSearchParams({
@@ -449,13 +449,12 @@ export class SAMLProvider {
       return undefined;
     }
 
-    // Sanitize return_to URL
+    // Sanitize return_to path
     try {
       if (payload.return_to) {
-        const allowedOrigins = [this.config.returnToOrigin];
-        const sanitized = AuthUtils.sanitizeReturnTo(payload.return_to, allowedOrigins);
+        const sanitized = AuthUtils.sanitizeReturnTo(payload.return_to);
         if (!sanitized) {
-          this.logger.warn('Return_to URL failed sanitization', { return_to: payload.return_to });
+          this.logger.warn('Return_to path failed sanitization', { return_to: payload.return_to });
           return '/';
         }
         return sanitized;

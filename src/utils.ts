@@ -15,7 +15,7 @@
  * - Random string generation
  * - HMAC signature creation and verification
  * - Base64 URL encoding/decoding
- * - URL sanitization and validation
+ * - URL path sanitization and validation
  * - Cookie size monitoring
  * - CSRF token management
  *
@@ -29,8 +29,8 @@
  * // Create HMAC signature
  * const signature = await AuthUtils.createHMAC('data', 'secret');
  *
- * // Validate URL safety
- * const safeUrl = AuthUtils.sanitizeReturnTo(userUrl, ['https://myapp.com']);
+ * // Validate and sanitize returnTo path
+ * const safePath = AuthUtils.sanitizeReturnTo('/dashboard?tab=settings');
  * ```
  */
 export class AuthUtils {
@@ -137,60 +137,114 @@ export class AuthUtils {
   }
 
     /**
-   * Sanitize and validate returnTo URL
+   * Sanitize and validate returnTo path
    *
-   * Validates that a returnTo URL is safe for redirection by checking:
-   * - URL is well-formed and parseable
-   * - Protocol is HTTP or HTTPS (prevents javascript:, data:, etc.)
-   * - Origin matches one of the allowed origins
+   * Validates that a returnTo value is a safe relative path for redirection by:
+   * - Extracting the path from full URLs (stripping protocol and host)
+   * - Validating path structure (must start with /)
+   * - Preserving query parameters
+   * - Rejecting dangerous protocols (javascript:, data:, etc.)
+   * - Rejecting protocol-relative URLs (//evil.com)
    *
-   * This prevents open redirect vulnerabilities and malicious URL injection.
+   * This prevents open redirect vulnerabilities by only returning relative paths.
    *
-   * @param returnTo - URL to validate and sanitize
-   * @param allowedOrigins - Array of allowed origin URLs (e.g., ['https://myapp.com'])
-   * @returns Sanitized URL string if valid, null if invalid or unsafe
+   * @param returnTo - URL or path to validate and sanitize
+   * @returns Sanitized path string (with query params) if valid, null if invalid or unsafe
    *
    * @example
    * ```typescript
-   * const safeUrl = AuthUtils.sanitizeReturnTo(
-   *   'https://myapp.com/dashboard',
-   *   ['https://myapp.com', 'https://admin.myapp.com']
-   * );
+   * // Path input - returned as-is
+   * AuthUtils.sanitizeReturnTo('/dashboard'); // '/dashboard'
    *
-   * if (safeUrl) {
-   *   // Safe to redirect
-   *   return Response.redirect(safeUrl);
-   * } else {
-   *   // Potentially malicious URL, redirect to default
-   *   return Response.redirect('/dashboard');
-   * }
+   * // Path with query params - preserved
+   * AuthUtils.sanitizeReturnTo('/search?q=test'); // '/search?q=test'
+   *
+   * // Full URL - path extracted
+   * AuthUtils.sanitizeReturnTo('https://myapp.com/dashboard'); // '/dashboard'
+   *
+   * // Full URL with query params - path and params extracted
+   * AuthUtils.sanitizeReturnTo('https://myapp.com/search?q=test'); // '/search?q=test'
+   *
+   * // Invalid inputs return null
+   * AuthUtils.sanitizeReturnTo('javascript:alert(1)'); // null
+   * AuthUtils.sanitizeReturnTo('//evil.com/path'); // null
+   * AuthUtils.sanitizeReturnTo('not-a-valid-path'); // null
    * ```
    *
    * @security This function is critical for preventing open redirect attacks
    */
-  static sanitizeReturnTo(returnTo: string, allowedOrigins: string[]): string | null {
-    try {
-      const url = new URL(returnTo);
-
-      // Only allow same-origin URLs or explicitly allowed origins
-      const isAllowed = allowedOrigins.some(origin => {
-        const allowedUrl = new URL(origin);
-        return url.origin === allowedUrl.origin;
-      });
-
-      if (!isAllowed) {
-        return null;
-      }
-
-      // Prevent javascript: protocol and other dangerous schemes
-      if (!['http:', 'https:'].includes(url.protocol)) {
-        return null;
-      }
-
-      return url.toString();
-    } catch {
+  static sanitizeReturnTo(returnTo: string): string | null {
+    if (!returnTo || typeof returnTo !== 'string') {
       return null;
     }
+
+    const trimmed = returnTo.trim();
+
+    // Reject empty strings
+    if (!trimmed) {
+      return null;
+    }
+
+    // Reject protocol-relative URLs (//evil.com)
+    if (trimmed.startsWith('//')) {
+      return null;
+    }
+
+    // Reject dangerous protocols
+    const dangerousProtocols = ['javascript:', 'data:', 'vbscript:', 'file:'];
+    const lowerTrimmed = trimmed.toLowerCase();
+    if (dangerousProtocols.some(proto => lowerTrimmed.startsWith(proto))) {
+      return null;
+    }
+
+    // Check for directory traversal attempts BEFORE URL parsing (which normalizes them away)
+    // Check both encoded and decoded forms
+    const decodedInput = (() => {
+      try {
+        return decodeURIComponent(trimmed);
+      } catch {
+        return trimmed;
+      }
+    })();
+
+    if (trimmed.includes('..') || decodedInput.includes('..')) {
+      return null;
+    }
+
+    let pathname: string;
+    let search: string;
+
+    // Check if it's a full URL (has protocol)
+    if (/^https?:\/\//i.test(trimmed)) {
+      try {
+        const url = new URL(trimmed);
+        pathname = url.pathname;
+        search = url.search;
+      } catch {
+        return null;
+      }
+    } else if (trimmed.startsWith('/')) {
+      // It's already a path - parse it to extract pathname and search
+      try {
+        // Use a dummy base to parse the path
+        const url = new URL(trimmed, 'http://dummy.local');
+        pathname = url.pathname;
+        search = url.search;
+      } catch {
+        return null;
+      }
+    } else {
+      // Not a valid path (doesn't start with /) and not a full URL
+      return null;
+    }
+
+    // Ensure pathname starts with /
+    if (!pathname.startsWith('/')) {
+      return null;
+    }
+
+    // Return path with query string if present
+    return pathname + search;
   }
 
   /**
