@@ -232,9 +232,13 @@ export class SAMLProvider {
   async getLoginUrl(options: LoginOptions = {}): Promise<string> {
     try {
       const { returnTo, ...additionalParams } = options;
-      const payload: RelayStatePayload = {
-        return_to: returnTo || this.config.returnToPath || '/',
-      };
+      const finalDestination = returnTo || this.config.returnToPath || '/';
+
+      // Build RelayState payload - only include return_to if includeReturnTo is enabled
+      const payload: RelayStatePayload = {};
+      if (this.config.includeReturnTo && returnTo) {
+        payload.return_to = returnTo;
+      }
       const relayState = JSON.stringify(payload);
 
       // Build service provider login URL
@@ -242,8 +246,8 @@ export class SAMLProvider {
       const params = new URLSearchParams({
         entity: this.config.issuer,
         return_to: acsUrl,
-        final_destination: returnTo || this.config.returnToPath || '/',
-        ...(relayState && { RelayState: relayState }),
+        final_destination: finalDestination,
+        RelayState: relayState,
         ...additionalParams,
       });
 
@@ -252,7 +256,7 @@ export class SAMLProvider {
       this.logger.debug('Generated login URL', {
         hasRelayState: !!relayState,
         return_to: acsUrl,
-        final_destination: returnTo || this.config.returnToPath || '/',
+        final_destination: finalDestination,
         loginUrl: loginUrl.split('?')[0], // Log URL without parameters for security
       });
 
