@@ -116,9 +116,6 @@ export class SAMLProvider {
       serviceProviderLoginUrl: config.serviceProviderLoginUrl || process.env.ADAPT_AUTH_SAML_SP_URL || `https://${config.issuer || process.env.ADAPT_AUTH_SAML_ENTITY}.stanford.edu/api/sso/login`,
       returnToPath: config.returnToPath || process.env.ADAPT_AUTH_SAML_RETURN_PATH || '',
 
-      // RelayState configuration with defaults
-      includeReturnTo: config.includeReturnTo ?? true,
-
       // SAML protocol settings with secure defaults
       signatureAlgorithm: config.signatureAlgorithm || 'sha256',
       identifierFormat: config.identifierFormat || 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified',
@@ -234,9 +231,9 @@ export class SAMLProvider {
       const { returnTo, ...additionalParams } = options;
       const finalDestination = returnTo || this.config.returnToPath || '/';
 
-      // Build RelayState payload - only include return_to if includeReturnTo is enabled
+      // Build RelayState payload - only include return_to if it's set
       const payload: RelayStatePayload = {};
-      if (this.config.includeReturnTo && returnTo) {
+      if (returnTo) {
         payload.return_to = returnTo;
       }
       const relayState = JSON.stringify(payload);

@@ -241,7 +241,6 @@ describe('SAMLProvider', () => {
       expect(config.serviceProviderLoginUrl).toBe(validConfig.serviceProviderLoginUrl);
       expect(typeof config.acceptedClockSkewMs).toBe('number');
       expect(typeof config.wantAssertionsSigned).toBe('boolean');
-      expect(typeof config.includeReturnTo).toBe('boolean');
     });
   });
 });

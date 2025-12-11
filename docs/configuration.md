@@ -39,7 +39,6 @@ const auth = createAdaptNext({
     // Optional
     serviceProviderLoginUrl: 'https://adapt-sso-uat.stanford.edu/api/sso/login',
     returnToPath: '/api/auth/acs',
-    includeReturnTo: true,
     relayStateMaxAge: 300, // 5 minutes
 
     // SAML Protocol Options
@@ -95,7 +94,6 @@ const auth = createAdaptNext({
 |--------|------|---------|-------------|
 | `serviceProviderLoginUrl` | `string` | Stanford SP URL | URL to initiate SAML login |
 | `returnToPath` | `string` | `''` | Path component for ACS URL |
-| `includeReturnTo` | `boolean` | `true` | Include return URL in RelayState |
 | `relayStateMaxAge` | `number` | `300` | Max age for RelayState in seconds |
 | `wantAssertionsSigned` | `boolean` | `true` | Require signed SAML assertions |
 | `wantAuthnResponseSigned` | `boolean` | `true` | Require signed SAML responses |

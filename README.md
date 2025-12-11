@@ -77,7 +77,6 @@ export const auth = createAdaptNext({
     // Optional - customize as needed
     serviceProviderLoginUrl: 'https://custom.stanford.edu/api/sso/login',
     returnToPath: '/custom/callback',
-    includeReturnTo: true,
     privateKey: process.env.ADAPT_AUTH_SAML_PRIVATE_KEY,
     decryptionPvk: process.env.ADAPT_AUTH_SAML_DECRYPTION_KEY,
     wantAssertionsSigned: true,

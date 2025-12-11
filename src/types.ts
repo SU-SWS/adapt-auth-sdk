@@ -90,12 +90,6 @@ export interface OptionalSamlConfig {
   returnToPath?: string;
 
   /**
-   * Whether to include returnTo URL in RelayState for post-login redirects
-   * @default true
-   */
-  includeReturnTo?: boolean;
-
-  /**
    * Private key for SAML signing (if different from idpCert)
    * @default process.env.ADAPT_AUTH_SAML_PRIVATE_KEY || idpCert
    */
