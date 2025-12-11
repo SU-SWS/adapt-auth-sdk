@@ -231,17 +231,18 @@ export class SAMLProvider {
       const { finalDestination, ...additionalParams } = options;
       const destinationPath = finalDestination || this.config.callbackPath || '/';
 
-      // Build RelayState payload - include entity and return_to if finalDestination is set
+      // Build RelayState payload
+      const callbackUrl = new URL(this.config.callbackPath, this.config.callbackOrigin).toString();
       const payload: RelayStatePayload = {
         entity: this.config.issuer,
+        returnTo: callbackUrl,
       };
       if (finalDestination) {
-        payload.return_to = finalDestination as string;
+        payload.finalDestination = finalDestination as string;
       }
       const relayState = JSON.stringify(payload);
 
-      // Build service provider login URL with callback URL
-      const callbackUrl = new URL(this.config.callbackPath, this.config.callbackOrigin).toString();
+      // Build service provider login URL
       const params = new URLSearchParams({
         entity: this.config.issuer,
         return_to: callbackUrl,
@@ -452,12 +453,12 @@ export class SAMLProvider {
       return undefined;
     }
 
-    // Sanitize return_to path (this is the final destination after auth)
+    // Sanitize finalDestination path (where user goes after auth)
     try {
-      if (payload.return_to) {
-        const sanitized = AuthUtils.sanitizeReturnTo(payload.return_to);
+      if (payload.finalDestination) {
+        const sanitized = AuthUtils.sanitizeReturnTo(payload.finalDestination);
         if (!sanitized) {
-          this.logger.warn('Final destination path failed sanitization', { return_to: payload.return_to });
+          this.logger.warn('Final destination path failed sanitization', { finalDestination: payload.finalDestination });
           return '/';
         }
         return sanitized;

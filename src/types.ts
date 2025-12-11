@@ -39,11 +39,14 @@ export type Session = {
 /**
  * RelayState payload structure
  *
- * Uses return_to key for backward compatibility with the external SSO protocol.
+ * - entity: The SAML entity identifier
+ * - returnTo: The callback URL where IdP posts SAML response
+ * - finalDestination: Where user redirects after authentication
  */
 export interface RelayStatePayload {
   entity?: string;
-  return_to?: string;
+  returnTo?: string;
+  finalDestination?: string;
 }
 
 /**
