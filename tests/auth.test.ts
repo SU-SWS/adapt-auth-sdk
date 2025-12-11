@@ -57,26 +57,63 @@ describe('AuthUtils', () => {
   });
 
   describe('sanitizeReturnTo', () => {
-    const allowedOrigins = ['https://example.com', 'http://localhost:3000'];
-
-    it('should allow same-origin URLs', () => {
-      const result = AuthUtils.sanitizeReturnTo('https://example.com/path', allowedOrigins);
-      expect(result).toBe('https://example.com/path');
+    it('should allow valid paths', () => {
+      expect(AuthUtils.sanitizeReturnTo('/dashboard')).toBe('/dashboard');
+      expect(AuthUtils.sanitizeReturnTo('/this/path/is/ok')).toBe('/this/path/is/ok');
     });
 
-    it('should reject different origins', () => {
-      const result = AuthUtils.sanitizeReturnTo('https://evil.com/path', allowedOrigins);
-      expect(result).toBeNull();
+    it('should preserve query parameters', () => {
+      expect(AuthUtils.sanitizeReturnTo('/search?q=test')).toBe('/search?q=test');
+      expect(AuthUtils.sanitizeReturnTo('/this/path?q=ok')).toBe('/this/path?q=ok');
+      expect(AuthUtils.sanitizeReturnTo('/path?foo=bar&baz=qux')).toBe('/path?foo=bar&baz=qux');
+    });
+
+    it('should extract path from full URLs', () => {
+      expect(AuthUtils.sanitizeReturnTo('https://example.com/path')).toBe('/path');
+      expect(AuthUtils.sanitizeReturnTo('https://full-urls.are/not/allowed')).toBe('/not/allowed');
+      expect(AuthUtils.sanitizeReturnTo('http://localhost:3000/dashboard')).toBe('/dashboard');
+    });
+
+    it('should extract path and query params from full URLs', () => {
+      expect(AuthUtils.sanitizeReturnTo('https://example.com/search?q=test')).toBe('/search?q=test');
+      expect(AuthUtils.sanitizeReturnTo('https://example.com/path?foo=bar&baz=qux')).toBe('/path?foo=bar&baz=qux');
     });
 
     it('should reject javascript: protocol', () => {
-      const result = AuthUtils.sanitizeReturnTo('javascript:alert(1)', allowedOrigins);
-      expect(result).toBeNull();
+      expect(AuthUtils.sanitizeReturnTo('javascript:alert(1)')).toBeNull();
     });
 
-    it('should reject malformed URLs', () => {
-      const result = AuthUtils.sanitizeReturnTo('not-a-url', allowedOrigins);
-      expect(result).toBeNull();
+    it('should reject other dangerous protocols', () => {
+      expect(AuthUtils.sanitizeReturnTo('data:text/html,<script>alert(1)</script>')).toBeNull();
+      expect(AuthUtils.sanitizeReturnTo('vbscript:msgbox("xss")')).toBeNull();
+      expect(AuthUtils.sanitizeReturnTo('file:///etc/passwd')).toBeNull();
+    });
+
+    it('should reject protocol-relative URLs', () => {
+      expect(AuthUtils.sanitizeReturnTo('//evil.com/path')).toBeNull();
+    });
+
+    it('should reject paths without leading slash', () => {
+      expect(AuthUtils.sanitizeReturnTo('not-a-valid-path')).toBeNull();
+      expect(AuthUtils.sanitizeReturnTo('relative/path')).toBeNull();
+    });
+
+    it('should reject directory traversal attempts', () => {
+      expect(AuthUtils.sanitizeReturnTo('/path/../../../etc/passwd')).toBeNull();
+      expect(AuthUtils.sanitizeReturnTo('/path/..%2F..%2Fetc/passwd')).toBeNull();
+    });
+
+    it('should handle empty and invalid inputs', () => {
+      expect(AuthUtils.sanitizeReturnTo('')).toBeNull();
+      expect(AuthUtils.sanitizeReturnTo('   ')).toBeNull();
+      expect(AuthUtils.sanitizeReturnTo(null as unknown as string)).toBeNull();
+      expect(AuthUtils.sanitizeReturnTo(undefined as unknown as string)).toBeNull();
+    });
+
+    it('should handle root path', () => {
+      expect(AuthUtils.sanitizeReturnTo('/')).toBe('/');
+      expect(AuthUtils.sanitizeReturnTo('https://example.com/')).toBe('/');
+      expect(AuthUtils.sanitizeReturnTo('https://example.com')).toBe('/');
     });
   });
 });
