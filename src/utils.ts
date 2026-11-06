@@ -62,6 +62,51 @@ export class AuthUtils {
   }
 
   /**
+   * Generate a new session ID
+   *
+   * @returns Random UUID v4
+   */
+  static generateSessionId(): string {
+    return crypto.randomUUID();
+  }
+
+  /**
+   * Derive a stable session ID for a session sealed before session IDs existed
+   *
+   * Computes HMAC-SHA256 over the user ID and issue time, keyed with the
+   * session secret, and formats the first 16 bytes as a UUID v8 (RFC 9562
+   * custom UUID). The same session always yields the same ID, so it is stable
+   * across requests without rewriting the cookie, and it cannot be guessed
+   * without the secret.
+   *
+   * @param userId - The session's user ID
+   * @param issuedAt - The session's issue timestamp
+   * @param secret - Session secret
+   * @returns UUID v8 string
+   */
+  static async deriveLegacySessionId(userId: string, issuedAt: number, secret: string): Promise<string> {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      this.encoder.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    const digest = await crypto.subtle.sign(
+      'HMAC',
+      key,
+      this.encoder.encode(`adapt-auth-sdk:legacy-session-id:${userId}:${issuedAt}`)
+    );
+
+    const bytes = new Uint8Array(digest, 0, 16);
+    bytes[6] = (bytes[6] & 0x0f) | 0x80; // version 8
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // RFC 9562 variant
+
+    const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  /**
    * Create HMAC-SHA256 signature
    *
    * Creates a Hash-based Message Authentication Code using SHA-256.

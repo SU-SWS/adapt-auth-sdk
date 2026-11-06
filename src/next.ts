@@ -695,7 +695,7 @@ export class AdaptNext {
    * });
    * ```
    */
-  async updateSession(updates: Partial<Session>): Promise<Session | null> {
+  async updateSession(updates: Partial<Omit<Session, 'id'>>): Promise<Session | null> {
     this.assertServerEnvironment('updateSession');
 
     const sessionManager = await this.getSessionManager();

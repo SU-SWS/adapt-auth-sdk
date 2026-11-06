@@ -22,6 +22,7 @@ import {
   User
 } from './types.js';
 import { unsealData } from 'iron-session';
+import { AuthUtils } from './utils.js';
 
 /**
  * Simple edge-compatible logger for debugging
@@ -389,6 +390,16 @@ export class EdgeSessionReader {
       // Validate session
       if (!this.isValidSession(sessionData)) {
         return null;
+      }
+
+      // Sessions sealed before session IDs existed: derive the same stable
+      // ID that SessionManager.getSession() would.
+      if (!sessionData.id) {
+        sessionData.id = await AuthUtils.deriveLegacySessionId(
+          sessionData.user.id,
+          sessionData.issuedAt ?? 0,
+          this.secret
+        );
       }
 
       return sessionData;

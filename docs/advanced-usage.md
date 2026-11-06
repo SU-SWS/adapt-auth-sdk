@@ -65,6 +65,25 @@ export async function updateUserProfile(request: Request, profileUpdates: Partia
 }
 ```
 
+### Session IDs
+
+Every session has an `id` (a UUID) that is sealed into the cookie with the rest of the session:
+
+- A new ID is generated at login (`createSession`).
+- It stays the same for the life of the session. `updateSession()` and `refreshSession()` keep it, and `updates` cannot change it.
+- `user.sessionId` is a different value: the IdP's own session ID.
+
+Use it to correlate logs or to key server-side records, such as a revocation list:
+
+```typescript
+const session = await auth.getSession();
+if (session && (await isRevoked(session.id))) {
+  await auth.logout();
+}
+```
+
+Sessions sealed before session IDs existed get a stable ID derived from the session (a UUID v8, keyed with your session secret). It's the same on every request, in Node.js and edge runtimes, and it is saved to the cookie on the next update or refresh. Users don't need to sign in again.
+
 ### Session Size Management
 
 For a safe maximum, you should never exceed 4KB per cookie.
@@ -100,7 +119,7 @@ export async function updateSessionSafely(request: Request, updates: Partial<Ses
 For testing purposes, you can create encrypted cookie values without setting HTTP headers using the `SessionManager.sealSession` static method:
 
 ```typescript
-import { SessionManager, Session, User } from 'adapt-auth-sdk';
+import { SessionManager, SessionInput, User } from 'adapt-auth-sdk';
 
 // Create test session data
 const testUser: User = {
@@ -109,7 +128,7 @@ const testUser: User = {
   name: 'Test User'
 };
 
-const testSession: Session = {
+const testSession: SessionInput = { // `id` is generated when omitted
   user: testUser,
   meta: { roles: ['admin'], theme: 'dark' },
   issuedAt: Date.now(),
