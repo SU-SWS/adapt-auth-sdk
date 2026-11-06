@@ -605,7 +605,10 @@ export class SessionManager {
 
       return sealedValue;
     } catch (error) {
-      throw new Error(`Failed to seal session: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to seal session: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
+      );
     }
   }
 }
