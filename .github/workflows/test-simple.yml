@@ -15,14 +15,14 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Read .nvmrc
         id: nvmrc
         run: echo "node-version=$(cat .nvmrc)" >> $GITHUB_OUTPUT
 
       - name: Use Node.js from .nvmrc
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ steps.nvmrc.outputs.node-version }}
           cache: 'npm'
@@ -37,7 +37,7 @@ jobs:
         run: npm run test:coverage
 
       - name: Upload coverage to artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage/
