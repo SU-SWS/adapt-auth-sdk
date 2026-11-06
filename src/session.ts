@@ -232,6 +232,13 @@ export class SessionManager {
         }
       );
 
+      // iron-session yields an empty object when the cookie cannot be
+      // unsealed (wrong secret, tampering, corruption). Treat it as no session.
+      if (!session.user) {
+        this.logger.debug('Session cookie present but contains no user');
+        return null;
+      }
+
       // Check if session is expired
       if (session.expiresAt && Date.now() > session.expiresAt) {
         this.logger.debug('Session expired', { expiresAt: session.expiresAt });
@@ -239,7 +246,7 @@ export class SessionManager {
         return null;
       }
 
-      return session;
+      return session as Session;
     } catch (error) {
       this.logger.error('Failed to get session', { error: error instanceof Error ? error.message : 'Unknown error' });
       return null;

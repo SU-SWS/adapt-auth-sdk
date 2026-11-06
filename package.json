@@ -66,9 +66,9 @@
     "build:cleanup": "rimraf dist/**/_virtual dist/**/node_modules",
     "clean": "rimraf dist",
     "prepare": "npm run build",
-    "test": "jest",
-    "test:coverage": "jest --coverage",
-    "test:watch": "jest --watch",
+    "test": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js",
+    "test:coverage": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --coverage",
+    "test:watch": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --watch",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "tsc": "tsc"
@@ -85,7 +85,7 @@
   "homepage": "https://github.com/SU-SWS/adapt-auth-sdk#readme",
   "dependencies": {
     "@node-saml/node-saml": "^5.2.0",
-    "iron-session": "^8.0.4"
+    "iron-session": "^9.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -109,6 +109,6 @@
     "next": ">=14"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.13.0"
   }
 }
