@@ -246,16 +246,6 @@ export class SessionManager {
         return null;
       }
 
-      // Sessions sealed before session IDs existed: derive a stable ID.
-      // It is persisted the next time the session is updated or refreshed.
-      if (!session.id) {
-        session.id = await AuthUtils.deriveLegacySessionId(
-          session.user.id,
-          session.issuedAt ?? 0,
-          this.config.secret
-        );
-      }
-
       return session as Session;
     } catch (error) {
       this.logger.error('Failed to get session', { error: error instanceof Error ? error.message : 'Unknown error' });

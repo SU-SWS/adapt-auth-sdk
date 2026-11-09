@@ -38,9 +38,6 @@ export type Session = {
    *   `updateSession()` and `refreshSession()`
    * - A new ID is issued on every login
    *
-   * Sessions sealed before session IDs existed get a stable ID derived from
-   * the session (UUID v8), which is saved on the next update or refresh.
-   *
    * Not to be confused with `user.sessionId`, the IdP's own session ID.
    */
   id: string;

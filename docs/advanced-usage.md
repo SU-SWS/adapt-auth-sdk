@@ -82,8 +82,6 @@ if (session && (await isRevoked(session.id))) {
 }
 ```
 
-Sessions sealed before session IDs existed get a stable ID derived from the session (a UUID v8, keyed with your session secret). It's the same on every request, in Node.js and edge runtimes, and it is saved to the cookie on the next update or refresh. Users don't need to sign in again.
-
 ### Session Size Management
 
 For a safe maximum, you should never exceed 4KB per cookie.

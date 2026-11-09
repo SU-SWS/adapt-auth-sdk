@@ -1,12 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { sealData, unsealData } from 'iron-session';
+import { unsealData } from 'iron-session';
 import { SessionManager, CookieStore } from '../src/session';
-import { EdgeSessionReader } from '../src/edge-session';
-import { AuthUtils } from '../src/utils';
 import { User } from '../src/types';
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const UUID_V8 = /^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 const secret = 'test-secret-32-characters-long!!';
 const config = { name: 'test-session', secret, cookie: {} };
@@ -102,74 +99,6 @@ describe('Session IDs', () => {
       const sealed = await SessionManager.sealSession({ ...data, id: 'fixed-test-id' }, config);
 
       expect((await unsealData<any>(sealed, { password: secret })).id).toBe('fixed-test-id');
-    });
-  });
-
-  describe('sessions sealed before session IDs existed', () => {
-    const issuedAt = 1700000000000;
-    const sealLegacy = () =>
-      sealData({ user: testUser, issuedAt, expiresAt: 0 }, { password: secret });
-
-    it('derives a stable UUID v8 without rewriting the cookie', async () => {
-      const jar = createJar({ [config.name]: await sealLegacy() });
-      const before = jar.values.get(config.name);
-      const manager = new SessionManager(jar, config);
-
-      const first = await manager.getSession();
-      const second = await manager.getSession();
-
-      expect(first?.id).toMatch(UUID_V8);
-      expect(second?.id).toBe(first?.id);
-      expect(jar.values.get(config.name)).toBe(before);
-    });
-
-    it('derives the same ID for the same session in a separate request', async () => {
-      const cookie = await sealLegacy();
-
-      const a = await new SessionManager(createJar({ [config.name]: cookie }), config).getSession();
-      const b = await new SessionManager(createJar({ [config.name]: cookie }), config).getSession();
-
-      expect(a?.id).toMatch(UUID_V8);
-      expect(b?.id).toBe(a?.id);
-    });
-
-    it('matches the ID the edge reader derives', async () => {
-      const cookie = await sealLegacy();
-
-      const node = await new SessionManager(createJar({ [config.name]: cookie }), config).getSession();
-      const edge = await new EdgeSessionReader(secret, config.name).decryptSession(cookie);
-
-      expect(edge?.id).toBe(node?.id);
-    });
-
-    it('persists the derived ID on refresh, even though issuedAt changes', async () => {
-      const jar = createJar({ [config.name]: await sealLegacy() });
-      const manager = new SessionManager(jar, config);
-      const { id } = (await manager.getSession())!;
-
-      const refreshed = await manager.refreshSession();
-      const stored = await readCookie(jar);
-
-      expect(id).toMatch(UUID_V8);
-      expect(refreshed?.id).toBe(id);
-      expect(stored.id).toBe(id);
-      expect(stored.issuedAt).not.toBe(issuedAt);
-      expect((await manager.getSession())?.id).toBe(id);
-    });
-  });
-
-  describe('AuthUtils.deriveLegacySessionId', () => {
-    it('is deterministic', async () => {
-      expect(await AuthUtils.deriveLegacySessionId('u', 1, secret))
-        .toBe(await AuthUtils.deriveLegacySessionId('u', 1, secret));
-    });
-
-    it('depends on the user, the issue time, and the secret', async () => {
-      const base = await AuthUtils.deriveLegacySessionId('u', 1, secret);
-
-      expect(await AuthUtils.deriveLegacySessionId('v', 1, secret)).not.toBe(base);
-      expect(await AuthUtils.deriveLegacySessionId('u', 2, secret)).not.toBe(base);
-      expect(await AuthUtils.deriveLegacySessionId('u', 1, 'another-secret-32-characters-long')).not.toBe(base);
     });
   });
 });
