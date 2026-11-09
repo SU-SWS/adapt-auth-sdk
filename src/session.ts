@@ -529,7 +529,7 @@ export class SessionManager {
    * The returned string is what would normally be stored in the HTTP cookie, encrypted
    * using iron-session's encryption algorithm.
    *
-   * @param sessionData - The session data to encrypt. `id` is generated when omitted.
+   * @param sessionData - The session data to encrypt. `id` is generated when omitted or empty.
    * @param config - Session configuration with name, secret, and cookie options
    * @returns Promise resolving to the encrypted cookie value string
    *
@@ -607,6 +607,7 @@ export class SessionManager {
       );
 
       // Set session data
+      // `||`, not `??`: an empty-string ID is not a usable ID, so generate one
       Object.assign(session, { ...sessionData, id: sessionData.id || AuthUtils.generateSessionId() });
       await session.save();
 

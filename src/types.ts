@@ -49,7 +49,7 @@ export type Session = {
 
 /**
  * Session data accepted by `SessionManager.sealSession()`.
- * Same as `Session`, but `id` is optional and generated when omitted.
+ * Same as `Session`, but `id` is optional and generated when omitted or empty.
  */
 export type SessionInput = Omit<Session, 'id'> & { id?: string };
 

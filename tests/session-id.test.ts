@@ -95,6 +95,12 @@ describe('Session IDs', () => {
       expect((await unsealData<any>(sealed, { password: secret })).id).toMatch(UUID_V4);
     });
 
+    it('generates an ID when given an empty string', async () => {
+      const sealed = await SessionManager.sealSession({ ...data, id: '' }, config);
+
+      expect((await unsealData<any>(sealed, { password: secret })).id).toMatch(UUID_V4);
+    });
+
     it('keeps an ID that is given', async () => {
       const sealed = await SessionManager.sealSession({ ...data, id: 'fixed-test-id' }, config);
 

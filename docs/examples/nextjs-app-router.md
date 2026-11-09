@@ -484,7 +484,7 @@ jest.mock('@/lib/auth', () => ({
 describe('Authentication', () => {
   it('should handle authenticated requests', async () => {
     const mockSession = {
-      id: 'test-session-id',
+      id: '3f9c2a1e-7b4d-4c8e-9a6f-2d1b5e8c7a40',
       user: { id: '123', email: 'test@stanford.edu' },
       meta: {},
       issuedAt: Date.now(),
