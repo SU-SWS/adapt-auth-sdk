@@ -30,11 +30,28 @@ export type User = {
  * Session data structure
  */
 export type Session = {
+  /**
+   * Unique identifier for this session (UUID).
+   *
+   * - Generated when the session is created (random UUID v4)
+   * - Stays the same for the life of the session, including across
+   *   `updateSession()` and `refreshSession()`
+   * - A new ID is issued on every login
+   *
+   * Not to be confused with `user.sessionId`, the IdP's own session ID.
+   */
+  id: string;
   user: User;
   meta?: Record<string, unknown>; // developer-defined metadata
   issuedAt: number;
   expiresAt: number;
 };
+
+/**
+ * Session data accepted by `SessionManager.sealSession()`.
+ * Same as `Session`, but `id` is optional and generated when omitted or empty.
+ */
+export type SessionInput = Omit<Session, 'id'> & { id?: string };
 
 /**
  * RelayState payload structure

@@ -62,6 +62,15 @@ export class AuthUtils {
   }
 
   /**
+   * Generate a new session ID
+   *
+   * @returns Random UUID v4
+   */
+  static generateSessionId(): string {
+    return crypto.randomUUID();
+  }
+
+  /**
    * Create HMAC-SHA256 signature
    *
    * Creates a Hash-based Message Authentication Code using SHA-256.
