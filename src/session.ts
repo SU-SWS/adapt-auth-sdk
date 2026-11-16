@@ -18,7 +18,7 @@
  */
 
 import { getIronSession } from 'iron-session';
-import { Session, SessionConfig, User, Logger } from './types.js';
+import { Session, SessionInput, SessionConfig, User, Logger } from './types.js';
 import { AuthUtils } from './utils.js';
 import { DefaultLogger } from './logger.js';
 import { IronCookieStore } from './types.js';
@@ -276,6 +276,7 @@ export class SessionManager {
   async createSession(user: User, meta?: Record<string, unknown>): Promise<Session> {
     const now = Date.now();
     const sessionData: Session = {
+      id: AuthUtils.generateSessionId(),
       user,
       meta,
       issuedAt: now,
@@ -319,6 +320,7 @@ export class SessionManager {
       AuthUtils.checkCookieSize(cookieValue, this.config.cookieSizeThreshold, this.logger);
 
       this.logger.info('Session created', {
+        sessionId: sessionData.id,
         userId: user.id,
         issuedAt: sessionData.issuedAt,
         mainCookie: mainCookieName,
@@ -352,7 +354,7 @@ export class SessionManager {
    * });
    * ```
    */
-  async updateSession(updates: Partial<Session>): Promise<Session | null> {
+  async updateSession(updates: Partial<Omit<Session, 'id'>>): Promise<Session | null> {
     try {
       const currentSession = await this.getSession();
       if (!currentSession) {
@@ -362,6 +364,8 @@ export class SessionManager {
       const updatedSession: Session = {
         ...currentSession,
         ...updates,
+        // The session ID is fixed for the life of the session
+        id: currentSession.id,
       };
 
       const ironStore = {
@@ -525,7 +529,7 @@ export class SessionManager {
    * The returned string is what would normally be stored in the HTTP cookie, encrypted
    * using iron-session's encryption algorithm.
    *
-   * @param sessionData - The session data to encrypt
+   * @param sessionData - The session data to encrypt. `id` is generated when omitted or empty.
    * @param config - Session configuration with name, secret, and cookie options
    * @returns Promise resolving to the encrypted cookie value string
    *
@@ -555,7 +559,7 @@ export class SessionManager {
    *
    * @throws {Error} If session secret is less than 32 characters or encryption fails
    */
-  static async sealSession(sessionData: Session, config: SessionConfig): Promise<string> {
+  static async sealSession(sessionData: SessionInput, config: SessionConfig): Promise<string> {
     // Validate secret length
     if (config.secret.length < 32) {
       throw new Error('Session secret must be at least 32 characters long');
@@ -603,7 +607,8 @@ export class SessionManager {
       );
 
       // Set session data
-      Object.assign(session, sessionData);
+      // `||`, not `??`: an empty-string ID is not a usable ID, so generate one
+      Object.assign(session, { ...sessionData, id: sessionData.id || AuthUtils.generateSessionId() });
       await session.save();
 
       if (!sealedValue) {
