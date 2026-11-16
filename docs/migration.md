@@ -4,6 +4,58 @@ This guide helps you migrate between ADAPT Auth SDK versions.
 
 ---
 
+## v2.x → v3.0 Migration
+
+Version 3.0 upgrades the underlying session library to `iron-session` v9 and adds a session ID to every session.
+
+### Summary of Changes
+
+| What Changed | v2.x | v3.0 |
+|--------------|------|------|
+| Minimum Node.js | 18 | 22.13 |
+| `iron-session` | v8 | v9 |
+| Unreadable session cookie | `getSession()` returned an empty object | `getSession()` returns `null` |
+| `Date` values in session data | Silently converted to strings | Throws an error when saving |
+| `Session.id` | Did not exist | Required, a UUID sealed into every session |
+| `sealSession()` input | `Session` | `SessionInput` (`id` optional, generated when omitted) |
+
+### ⚠️ Breaking Change: Node.js 22.13 or Higher
+
+`iron-session` v9 is ESM-only. The SDK's CommonJS build still works, because Node.js 22.13+ can `require()` ES modules natively. Upgrade your runtime (including serverless function runtimes) before upgrading the SDK.
+
+### ⚠️ Breaking Change: Store Dates as Numbers or Strings
+
+If you put `Date` objects in `meta`, save them as timestamps or ISO strings instead:
+
+```typescript
+// v2.x: silently stored as a string, read back as a string (not a Date)
+await sessionManager.updateSession({ meta: { lastSeen: new Date() } });
+
+// v3.0
+await sessionManager.updateSession({ meta: { lastSeen: Date.now() } });
+```
+
+### Behavior Fix: Invalid Cookies Return `null`
+
+When a session cookie could not be decrypted (for example, after rotating `ADAPT_AUTH_SESSION_SECRET`, or if the cookie was tampered with), v2.x `getSession()` returned an empty object with no `user`. Code that checked `if (session)` treated that visitor as signed in. v3.0 returns `null`, which matches the documented return type. `isAuthenticated()` and `getUser()` already behaved correctly.
+
+### New: Session IDs
+
+Every session now has an `id`. See [Session IDs](./advanced-usage.md#session-ids) for details. If you build `Session` objects yourself in TypeScript (for example, test fixtures or mocks), add an `id`, or type them as `SessionInput` when passing them to `sealSession()`. `updateSession()` no longer accepts `id`.
+
+### Existing Sessions Are Preserved
+
+Cookies created by v2.x are readable by v3.0, and cookies created by v3.0 are readable by v2.x. Users stay signed in across the upgrade, and you can roll back without signing anyone out.
+
+### Quick Migration Checklist
+
+- [ ] Run on Node.js 22.13 or higher
+- [ ] Replace any `Date` objects in session `meta` with `Date.now()` or `.toISOString()`
+- [ ] If you call `getSession()` directly, make sure you handle `null`
+- [ ] Add `id` to any hand-built `Session` objects, or use `SessionInput` with `sealSession()`
+
+---
+
 ## v2.0 → v2.1 Migration
 
 Version 2.1 introduces clearer naming conventions to distinguish between the **callback URL** (where the IdP posts SAML responses) and the **final destination** (where users are redirected after authentication).

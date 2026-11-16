@@ -191,4 +191,54 @@ describe('SessionManager.sealSession', () => {
     expect(retrievedSession?.user.email).toBe(testUser.email);
     expect(retrievedSession?.meta).toEqual(testSessionData.meta);
   });
+
+  describe('cookies that cannot be unsealed', () => {
+    const otherSecretConfig = {
+      ...testSessionConfig,
+      secret: 'a-different-secret-32-characters!',
+    };
+
+    const makeCookieStore = (value: string) => {
+      const set = jest.fn();
+      return {
+        set,
+        store: {
+          get: (name: string) =>
+            name === testSessionConfig.name ? { name, value } : undefined,
+          set,
+          delete: () => {},
+        },
+      };
+    };
+
+    it('should return null instead of an empty session when sealed with another secret', async () => {
+      const sealedValue = await SessionManager.sealSession(testSessionData, otherSecretConfig);
+      const { store } = makeCookieStore(sealedValue);
+
+      const sessionManager = new SessionManager(store, testSessionConfig);
+
+      expect(await sessionManager.getSession()).toBeNull();
+      expect(await sessionManager.getUser()).toBeNull();
+      expect(await sessionManager.isAuthenticated()).toBe(false);
+    });
+
+    it('should return null for a tampered cookie', async () => {
+      const sealedValue = await SessionManager.sealSession(testSessionData, testSessionConfig);
+      const { store } = makeCookieStore(sealedValue.slice(0, -4) + 'AAAA');
+
+      const sessionManager = new SessionManager(store, testSessionConfig);
+
+      expect(await sessionManager.getSession()).toBeNull();
+    });
+
+    it('should not write a user-less session back on refresh', async () => {
+      const sealedValue = await SessionManager.sealSession(testSessionData, otherSecretConfig);
+      const { store, set } = makeCookieStore(sealedValue);
+
+      const sessionManager = new SessionManager(store, testSessionConfig);
+
+      expect(await sessionManager.refreshSession()).toBeNull();
+      expect(set).not.toHaveBeenCalled();
+    });
+  });
 });

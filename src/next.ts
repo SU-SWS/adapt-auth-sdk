@@ -377,7 +377,8 @@ export class AdaptNext {
       });
 
       throw new Error(
-        `Failed to access Next.js cookies: ${(error as Error).message}. Make sure this code is running in a Next.js App Router context.`
+        `Failed to access Next.js cookies: ${(error as Error).message}. Make sure this code is running in a Next.js App Router context.`,
+        { cause: error }
       );
     }
   }
@@ -694,7 +695,7 @@ export class AdaptNext {
    * });
    * ```
    */
-  async updateSession(updates: Partial<Session>): Promise<Session | null> {
+  async updateSession(updates: Partial<Omit<Session, 'id'>>): Promise<Session | null> {
     this.assertServerEnvironment('updateSession');
 
     const sessionManager = await this.getSessionManager();

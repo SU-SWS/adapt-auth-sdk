@@ -5,7 +5,7 @@ The `SessionManager.sealSession` static method allows you to generate encrypted 
 ## Basic Usage
 
 ```typescript
-import { SessionManager, Session, User } from '@su-sws/adapt-auth-sdk';
+import { SessionManager, SessionInput, User } from '@su-sws/adapt-auth-sdk';
 
 // Create test session data
 const testUser: User = {
@@ -14,7 +14,7 @@ const testUser: User = {
   name: 'Test User'
 };
 
-const sessionData: Session = {
+const sessionData: SessionInput = { // `id` is generated when omitted
   user: testUser,
   meta: { role: 'admin', theme: 'dark' },
   issuedAt: Date.now(),

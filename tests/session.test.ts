@@ -9,6 +9,8 @@ jest.mock('iron-session', () => ({
 
 const mockGetIronSession = jest.requireMock('iron-session').getIronSession;
 
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
 describe('SessionManager', () => {
   let mockCookieStore: any;
   let sessionManager: SessionManager;
@@ -159,11 +161,13 @@ describe('SessionManager', () => {
       const session = await sessionManager.createSession(testUser);
 
       expect(session).toEqual({
+        id: expect.stringMatching(UUID_V4),
         user: testUser,
         meta: undefined,
         issuedAt: mockTime,
         expiresAt: 0
       });
+      expect(mockIronSession.id).toBe(session.id);
 
       expect(mockIronSession.save).toHaveBeenCalled();
       expect(mockCookieStore.set).toHaveBeenCalledWith(
